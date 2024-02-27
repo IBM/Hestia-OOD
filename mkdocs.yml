@@ -5,12 +5,13 @@ watch: [hestia]
 nav:
 - Home:
   - Overview: index.md
-  - Code reference: hestia/
+  - Similarity calculation: similarity/
+  - Partitioning algorithms: partition/
 - Code reference:
-  - Contents:
-      - hestia.md
-  # - Partitioning algorithms:
-  #     - partition.md
+  - Similarity calculation:
+      - similarity.md
+  - Partitioning algorithms:
+      - partition.md
   # - Similarity reduction:
   #     - reduction.md
   # - Clustering algorithms:
