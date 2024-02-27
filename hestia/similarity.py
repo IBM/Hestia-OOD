@@ -173,7 +173,7 @@ def calculate_similarity(
 
     if species == 'protein':
         if 'mmseqs' in similarity_metric:
-            sim_df = mmseqs2_alignment(
+            sim_df = _mmseqs2_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -187,7 +187,7 @@ def calculate_similarity(
                 filename=filename
             )
         elif similarity_metric == 'needle':
-            sim_df = needle_alignment(
+            sim_df = _needle_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -200,7 +200,7 @@ def calculate_similarity(
                 filename=filename
             )
         elif similarity_metric == 'foldseek':
-            sim_df = foldseek_alignment(
+            sim_df = _foldseek_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -219,7 +219,7 @@ def calculate_similarity(
             raise NotImplementedError(mssg)
     elif species.upper() == 'DNA' or species.upper() == 'RNA':
         if 'mmseqs' in similarity_metric:
-            sim_df = mmseqs2_alignment(
+            sim_df = _mmseqs2_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -233,7 +233,7 @@ def calculate_similarity(
                 filename=filename
             )
         elif similarity_metric == 'needle':
-            sim_df = needle_alignment(
+            sim_df = _needle_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -251,7 +251,7 @@ def calculate_similarity(
             raise NotImplementedError(mssg)
     elif species == 'small_molecule' or species.lower() == 'smiles':
         if similarity_metric == 'scaffold':
-            sim_df = scaffold_alignment(
+            sim_df = _scaffold_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 field_name=field_name,
@@ -261,7 +261,7 @@ def calculate_similarity(
                 filename=filename
             )
         elif similarity_metric == 'fingerprint':
-            sim_df = fingerprint_alignment(
+            sim_df = _fingerprint_alignment(
                 df_query=df_query,
                 df_target=df_target,
                 threshold=threshold,
@@ -279,7 +279,7 @@ def calculate_similarity(
     return sim_df
 
 
-def scaffold_alignment(
+def _scaffold_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'smiles',
@@ -374,7 +374,7 @@ def scaffold_alignment(
     return df
 
 
-def fingerprint_alignment(
+def _fingerprint_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     threshold: float = 0.0,
@@ -483,7 +483,7 @@ def fingerprint_alignment(
     return df
 
 
-def foldseek_alignment(
+def _foldseek_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'structure',
@@ -634,7 +634,7 @@ def foldseek_alignment(
     return df
 
 
-def mmseqs2_alignment(
+def _mmseqs2_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'sequence',
@@ -779,7 +779,7 @@ def mmseqs2_alignment(
     return df
 
 
-def needle_alignment(
+def _needle_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'sequence',
