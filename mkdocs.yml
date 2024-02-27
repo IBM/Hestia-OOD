@@ -9,12 +9,12 @@ nav:
 - Code reference:
   - Similarity calculation:
       - similarity.md
-  - Partitioning algorithms:
-      - partition.md
-  - Similarity reduction:
-      - reduction.md
-  - Clustering algorithms:
-      - clustering.md
+  # - Partitioning algorithms:
+  #     - partition.md
+  # - Similarity reduction:
+  #     - reduction.md
+  # - Clustering algorithms:
+  #     - clustering.md
 
 markdown_extensions:
   - attr_list
