@@ -13,7 +13,7 @@ import scipy.sparse as spr
 
 def sim_df2mtx(sim_df: pd.DataFrame,
                threshold: float = 0.05) -> spr.bsr_matrix:
-    """Generates a similarity matrix from 
+    """Generates a similarity matrix from
     a DataFrame with the results from similarity
     calculations in the form of `query`, `target`,
     and `metric`.

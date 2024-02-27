@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
 
-from hestia.alignment import calculate_similarity, sim_df2mtx
+from hestia.similarity import calculate_similarity, sim_df2mtx
 from hestia.clustering import generate_clusters
 from hestia.reduction import similarity_reduction
 from hestia.utils import (_assign_partitions, _cluster_reassignment,
@@ -155,7 +155,7 @@ def connected_components_partition(
         - "matrix": "EBLOSUM62"
     :type config: dict, optional
     :param sim_df:  DataFrame with similarities (`metric`) between
-    `query` and `target`, it is the product of `similarity` function,
+    `query` and `target`, it is the product of `calculate_similarity` function,
     defaults to None
     :type sim_df: Optional[pd.DataFrame], optional
     :return: A tuple with the indexes of training and evaluation samples

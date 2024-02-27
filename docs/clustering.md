@@ -1,3 +1,3 @@
 # Clustering
 
-::: hestia.clustering.generate_clusters
+::: hestia.clustering

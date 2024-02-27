@@ -3,26 +3,57 @@ import time
 import pandas as pd
 from scipy.sparse.csgraph import connected_components
 
-from hestia.alignment import sim_df2mtx
+from hestia.similarity import sim_df2mtx
 
 
 def generate_clusters(
     df: pd.DataFrame,
     field_name: str,
-    threshold: float,
-    verbose: int,
     sim_df: pd.DataFrame,
+    threshold: float = 0.4,
+    verbose: int = 0,
     cluster_algorithm: str = 'greedy_incremental',
 ) -> pd.DataFrame:
+    """Generates clusters from a DataFrame.
+
+    :param df: DataFrame with entities to cluster.
+    :type df: pd.DataFrame
+    :param field_name: Name of the field with the entity information
+    (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
+    :type field_name: str
+    :param threshold: Similarity value above which entities will be
+    considered similar, defaults to 0.4
+    :param sim_df: DataFrame with similarities (`metric`) between
+    `query` and `target`, it is the product of `calculate_similarity` function
+    :type sim_df: pd.DataFrame
+    :type threshold: float
+    :param verbose: How much information will be displayed.
+    Options:
+        - 0: Errors,
+        - 1: Warnings,
+        - 2: All
+    Defaults to 0
+    :type verbose: int
+    :param cluster_algorithm: Clustering algorithm to use.
+    Options:
+        - `CDHIT` or `greedy_incremental`
+        - `greedy_cover_set`
+        - `connected_components`
+    Defaults to "CDHIT".
+    :type cluster_algorithm: str, optional
+    :raises NotImplementedError: Clustering algorithm is not supported
+    :return: DataFrame with entities and the cluster they belong to.
+    :rtype: pd.DataFrame
+    """
     start = time.time()
     if cluster_algorithm in ['greedy_incremental', 'CDHIT']:
-        cluster_df = greedy_incremental_clustering(df, field_name, sim_df,
-                                                   threshold, verbose)
+        cluster_df = _greedy_incremental_clustering(df, field_name, sim_df,
+                                                    threshold, verbose)
     elif cluster_algorithm in ['greedy_cover_set']:
-        cluster_df = greedy_cover_set(df, sim_df, threshold, verbose)
+        cluster_df = _greedy_cover_set(df, sim_df, threshold, verbose)
     elif cluster_algorithm in ['connected_components']:
-        cluster_df = connected_components_clustering(df, sim_df, threshold,
-                                                     verbose)
+        cluster_df = _connected_components_clustering(df, sim_df, threshold,
+                                                      verbose)
     else:
         raise NotImplementedError(
             f'Clustering algorithm: {cluster_algorithm} is not supported'
@@ -33,7 +64,7 @@ def generate_clusters(
     return cluster_df
 
 
-def greedy_incremental_clustering(
+def _greedy_incremental_clustering(
     df: pd.DataFrame,
     field_name: str,
     sim_df: pd.DataFrame,
@@ -72,7 +103,7 @@ def greedy_incremental_clustering(
     return cluster_df
 
 
-def greedy_cover_set(
+def _greedy_cover_set(
     df: pd.DataFrame,
     sim_df: pd.DataFrame,
     threshold: float,
@@ -117,7 +148,7 @@ def greedy_cover_set(
     return cluster_df
 
 
-def connected_components_clustering(
+def _connected_components_clustering(
     df: pd.DataFrame,
     sim_df: pd.DataFrame,
     threshold: float,
