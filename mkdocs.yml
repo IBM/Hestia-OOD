@@ -7,8 +7,9 @@ nav:
   - Overview: index.md
   - Code reference: hestia/
 - Code reference:
-  - Similarity calculation:
+  - Contents:
       - similarity.md
+      - partition.md
   # - Partitioning algorithms:
   #     - partition.md
   # - Similarity reduction:
