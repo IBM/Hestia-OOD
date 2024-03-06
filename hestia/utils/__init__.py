@@ -4,4 +4,4 @@ from hestia.utils.graph_part_utils import (_assign_partitions,
                                            _cluster_reassignment,
                                            _neighbour_analysis,
                                            limited_agglomerative_clustering)
-from hestia.utils.perimeter_split_partition_utils import _balanced_labels
+from hestia.utils.label_balance import _balanced_labels
