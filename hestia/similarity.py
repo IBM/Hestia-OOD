@@ -447,11 +447,12 @@ def _fingerprint_alignment(
     if df_target is None:
         df_target = df_query
 
-    chunk_size = threads
+    chunk_size = threads * 100
     chunks_query = (len(df_query) // chunk_size) + 1
     chunks_target =(len(df_query) // chunk_size) + 1
     proto_df = []
     pbar = tqdm(range(chunks_query))
+    queries, targets, metrics = [], [], []
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for chunk in pbar:
             start = chunk * chunk_size
@@ -464,7 +465,9 @@ def _fingerprint_alignment(
             fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
                         for x in mols_query]
             for chunk_t in range(chunks_target):
-                pbar.set_description(f'Covered: {chunk_t}/{chunks_target}')
+                pbar.set_description(f'Covered: {chunk_t:,} / {chunks_target:,}')
+                if chunk_t < chunk:
+                    continue
                 start_t = chunk_t * chunk_size
                 if chunk_t == chunks_target - 1:
                     end_t = -1
@@ -484,11 +487,14 @@ def _fingerprint_alignment(
                     if job.exception() is not None:
                         raise RuntimeError(job.exception())
                     result = job.result()
-                    entry = [{'query': start + idx, 'target': start_t + idx_target, 'metric': metric}
-                            for idx_target, metric in enumerate(result)]
-                    proto_df.extend(entry)
+                    for idx_target, metric in enumerate(result):
+                        if metric < threshold:
+                            continue
+                        queries.append(int(start + idx))
+                        targets.append(int(start_t + idx_target))
+                        metrics.append(metric)
 
-    df = pd.DataFrame(proto_df)
+    df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
     if save_alignment:
         if filename is None:
             filename = time.time()
