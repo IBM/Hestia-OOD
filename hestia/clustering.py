@@ -155,10 +155,10 @@ def _connected_components_clustering(
     verbose: int
 ) -> pd.DataFrame:
     matrix = sim_df2mtx(sim_df, threshold)
-    n, labels = connected_components(matrix, directed=False,
+    n, labels = connected_components(matrix, directed=True,
                                      return_labels=True)
     cluster_df = [{'cluster': labels[i],
-                   'member': i} for i in df.index]
+                   'member': i} for i in range(labels.shape[0])]
     if verbose > 0:
         print('Clustering has generated:',
               f'{n:,d} connected componentes for',

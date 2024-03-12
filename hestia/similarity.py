@@ -484,7 +484,7 @@ def _fingerprint_alignment(
                     if job.exception() is not None:
                         raise RuntimeError(job.exception())
                     result = job.result()
-                    entry = [{'query': idx, 'target': idx_target, 'metric': metric}
+                    entry = [{'query': start + idx, 'target': start_t + idx_target, 'metric': metric}
                             for idx_target, metric in enumerate(result)]
                     proto_df.extend(entry)
 
