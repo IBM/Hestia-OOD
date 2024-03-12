@@ -447,31 +447,45 @@ def _fingerprint_alignment(
     if df_target is None:
         df_target = df_query
 
-    mols_query = [Chem.MolFromSmiles(smiles) for smiles in df_query[field_name]]
-    mols_target = [Chem.MolFromSmiles(smiles) for smiles in df_target[field_name]]
-    fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                 for x in mols_query]
-    fps_target = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                  for x in mols_target]
-    jobs = []
+    chunk_size = threads
+    chunks_query = (len(df_query) // chunk_size) + 1
+    chunks_target =(len(df_query) // chunk_size) + 1
+    proto_df = []
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        for query_fp in fps_query:
-            job = executor.submit(_compute_tanimoto, query_fp, fps_target)
-            jobs.append(job)
+        for chunk in tqdm(range(chunks_query)):
+            print(chunk)
+            start = chunk * chunk_size
+            if chunk == chunks_query - 1:
+                end = -1
+            else:
+                end = (chunk + 1) * chunk_size
+            mols_query = [Chem.MolFromSmiles(smiles)
+                        for smiles in df_query[field_name][start:end]]
+            fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
+                        for x in mols_query]
+            for chunk_t in tqdm(range(chunks_target)):
+                start_t = chunk_t * chunk_size
+                if chunk_t == chunks_target - 1:
+                    end_t = -1
+                else:
+                    end_t = (chunk_t + 1) * chunk_size
 
-        if verbose > 1:
-            pbar = tqdm(jobs)
-        else:
-            pbar = jobs
+                mols_target = [Chem.MolFromSmiles(smiles)
+                            for smiles in df_target[field_name][start_t:end_t]]
+                fps_target = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
+                            for x in mols_target]
+                jobs = []
+                for query_fp in fps_query:
+                    job = executor.submit(_compute_tanimoto, query_fp, fps_target)
+                    jobs.append(job)
 
-        proto_df = []
-        for idx, job in enumerate(pbar):
-            if job.exception() is not None:
-                raise RuntimeError(job.exception())
-            result = job.result()
-            entry = [{'query': idx, 'target': idx_target, 'metric': metric}
-                     for idx_target, metric in enumerate(result)]
-            proto_df.extend(entry)
+                for idx, job in enumerate(jobs):
+                    if job.exception() is not None:
+                        raise RuntimeError(job.exception())
+                    result = job.result()
+                    entry = [{'query': idx, 'target': idx_target, 'metric': metric}
+                            for idx_target, metric in enumerate(result)]
+                    proto_df.extend(entry)
 
     df = pd.DataFrame(proto_df)
     if save_alignment:
