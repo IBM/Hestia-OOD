@@ -183,7 +183,6 @@ def connected_components_partition(
             bits=bits, denominator=denominator, radius=radius,
             representation=representation, config=config
         )
-
     cluster_df = generate_clusters(df, field_name=field_name,
                                    threshold=threshold,
                                    verbose=verbose,

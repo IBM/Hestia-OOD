@@ -451,9 +451,9 @@ def _fingerprint_alignment(
     chunks_query = (len(df_query) // chunk_size) + 1
     chunks_target =(len(df_query) // chunk_size) + 1
     proto_df = []
+    pbar = tqdm(range(chunks_query))
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        for chunk in tqdm(range(chunks_query)):
-            print(chunk)
+        for chunk in pbar:
             start = chunk * chunk_size
             if chunk == chunks_query - 1:
                 end = -1
@@ -463,7 +463,8 @@ def _fingerprint_alignment(
                         for smiles in df_query[field_name][start:end]]
             fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
                         for x in mols_query]
-            for chunk_t in tqdm(range(chunks_target)):
+            for chunk_t in range(chunks_target):
+                pbar.set_description(f'Covered: {chunk_t}/{chunks_target}')
                 start_t = chunk_t * chunk_size
                 if chunk_t == chunks_target - 1:
                     end_t = -1
@@ -483,7 +484,7 @@ def _fingerprint_alignment(
                     if job.exception() is not None:
                         raise RuntimeError(job.exception())
                     result = job.result()
-                    entry = [{'query': idx, 'target': idx_target, 'metric': metric}
+                    entry = [{'query': start + idx, 'target': start_t + idx_target, 'metric': metric}
                             for idx_target, metric in enumerate(result)]
                     proto_df.extend(entry)
 
