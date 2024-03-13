@@ -43,7 +43,7 @@ def random_partition(
     return train_df, test_df
 
 
-def connected_components_partition(
+def cc_part(
     df: pd.DataFrame,
     similarity_metric: str,
     field_name: str,
