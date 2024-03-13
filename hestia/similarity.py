@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import scipy.sparse as spr
+from concurrent.futures import ThreadPoolExecutor
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
@@ -388,10 +389,6 @@ def _fingerprint_alignment(
     filename: str = None,
     **kwargs
 ) -> Union[pd.DataFrame, np.ndarray]:
-    # Threshold for similarity evaluation: 0.85, based on:
-    # Patterson DE, Cramer RD, Ferguson AM, Clark RD, Weinberger LE:
-    # Neighborhood behavior: A useful concept for validation of ''molecular
-    # diversity'' descriptors. J Med Chem 1996, 39:3049-3059.
     """_summary_
 
     :param df_query: _description_
@@ -427,9 +424,14 @@ def _fingerprint_alignment(
         from rdkit import Chem
         from rdkit import DataStructs
         from rdkit.Chem import AllChem
+        from tqdm.contrib.concurrent import thread_map
     except ModuleNotFoundError:
         raise ImportError("This function requires RDKit to be installed.")
-    from concurrent.futures import ThreadPoolExecutor
+
+    def _get_fp(smile: str):
+        mol = Chem.MolFromSmiles(smile)
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, bits)
+        return fp
 
     def _compute_tanimoto(query_fp: list, target_fps: list):
         scores = DataStructs.BulkTanimotoSimilarity(query_fp, target_fps)
@@ -443,64 +445,51 @@ def _fingerprint_alignment(
     if verbose > 0:
         print(f'Calculating molecular similarities using ECFP-{radius * 2}',
               f'with {bits:,} bits and Tanimoto distance...')
+    query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads)
 
     if df_target is None:
         df_target = df_query
+        target_fps = query_fps
+    else:
+        target_fps = thread_map(_get_fp, df_query[field_name],
+                                max_workers=threads)
 
     chunk_size = threads * 100
-    chunks_query = (len(df_query) // chunk_size) + 1
-    chunks_target =(len(df_query) // chunk_size) + 1
-    proto_df = []
-    pbar = tqdm(range(chunks_query))
+    chunks_target = (len(df_target) // chunk_size) + 1
     queries, targets, metrics = [], [], []
+    pbar = tqdm(range(len(query_fps)))
+
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for chunk in pbar:
-            start = chunk * chunk_size
-            if chunk == chunks_query - 1:
-                end = -1
-            else:
-                end = (chunk + 1) * chunk_size
-            mols_query = [Chem.MolFromSmiles(smiles)
-                        for smiles in df_query[field_name][start:end]]
-            fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                        for x in mols_query]
+            jobs = []
             for chunk_t in range(chunks_target):
                 pbar.set_description(f'Covered: {chunk_t:,} / {chunks_target:,}')
-                if chunk_t < chunk:
-                    continue
                 start_t = chunk_t * chunk_size
                 if chunk_t == chunks_target - 1:
                     end_t = -1
                 else:
                     end_t = (chunk_t + 1) * chunk_size
+                chunk_fps = target_fps[start_t:end_t]
+                query_fp = query_fps[chunk]
+                job = executor.submit(_compute_tanimoto, query_fp, chunk_fps)
+                jobs.append(job)
 
-                mols_target = [Chem.MolFromSmiles(smiles)
-                            for smiles in df_target[field_name][start_t:end_t]]
-                fps_target = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                            for x in mols_target]
-                jobs = []
-                for query_fp in fps_query:
-                    job = executor.submit(_compute_tanimoto, query_fp, fps_target)
-                    jobs.append(job)
-
-                for idx, job in enumerate(jobs):
-                    if job.exception() is not None:
-                        raise RuntimeError(job.exception())
-                    result = job.result()
-                    for idx_target, metric in enumerate(result):
-                        if metric < threshold:
-                            continue
-                        queries.append(int(start + idx))
-                        targets.append(int(start_t + idx_target))
-                        metrics.append(metric)
-
+            for idx, job in enumerate(jobs):
+                if job.exception() is not None:
+                    raise RuntimeError(job.exception())
+                result = job.result()
+                for idx_target, metric in enumerate(result):
+                    if metric < threshold:
+                        continue
+                    queries.append(int(chunk))
+                    targets.append(int((idx * chunk_size) + idx_target))
+                    metrics.append(metric)
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
+
     if save_alignment:
         if filename is None:
             filename = time.time()
         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
-
-    # df = df[df.metric >= threshold]
     return df
 
 

@@ -81,12 +81,10 @@ def _greedy_incremental_clustering(
     for i in df.index:
         in_cluster = set(sim_df.loc[sim_df['query'] == i, 'target'])
         in_cluster.update(set(sim_df.loc[sim_df['target'] == i, 'query']))
-
-        if i in clustered:
-            continue
+        in_cluster.update(set([i]))
 
         for j in in_cluster:
-            if i == j:
+            if j in clustered:
                 continue
             clusters.append({
                 'cluster': i,
@@ -99,7 +97,7 @@ def _greedy_incremental_clustering(
     if verbose > 1:
         print('Clustering has generated:',
               f'{len(cluster_df.cluster.unique()):,d} clusters for',
-              f'{len(df):,} entities')
+              f'{len(cluster_df):,} entities')
     return cluster_df
 
 
@@ -127,11 +125,10 @@ def _greedy_cover_set(
 
     for i in df.index:
         in_cluster = neighbours.pop(0)
+        in_cluster.update([i])
 
-        if i in clustered:
-            continue
         for j in in_cluster:
-            if i == j:
+            if j in clustered:
                 continue
             clusters.append({
                 'cluster': i,
@@ -144,7 +141,7 @@ def _greedy_cover_set(
     if verbose > 1:
         print('Clustering has generated:',
               f'{len(cluster_df.cluster.unique()):,d} clusters for',
-              f'{len(df):,} entities')
+              f'{len(cluster_df):,} entities')
     return cluster_df
 
 
@@ -155,7 +152,7 @@ def _connected_components_clustering(
     verbose: int
 ) -> pd.DataFrame:
     matrix = sim_df2mtx(sim_df, threshold)
-    n, labels = connected_components(matrix, directed=True,
+    n, labels = connected_components(matrix, directed=False,
                                      return_labels=True)
     cluster_df = [{'cluster': labels[i],
                    'member': i} for i in range(labels.shape[0])]
