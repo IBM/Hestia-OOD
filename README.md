@@ -25,6 +25,7 @@
 - [License](#license)
  </details>
 
+
  ## Installation <a name="installation"></a>
 
 Installing in a conda environment is recommended. For creating the environment, please run:
