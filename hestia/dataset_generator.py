@@ -185,7 +185,8 @@ class HestiaDatasetGenerator:
                 )
             return ds
 
-    def calculate_auspc(self, results: dict, metric: str):
+    @staticmethod
+    def calculate_auspc(results: dict, metric: str):
         x, y = [], []
         for key, value in results.items():
             if key == 'random':
@@ -193,6 +194,23 @@ class HestiaDatasetGenerator:
             x.append(key)
             y.append(results['random'][metric] - value[metric])
         return auc(x, y)
+
+    @staticmethod
+    def plot_spc(results: dict, metric: str):
+        import matplotlib.pyplot as plt
+        x, y = [], []
+        for key, value in results.items():
+            if key == 'random':
+                continue
+            x.append(key)
+            y.append(value[metric])
+        plt.scatter(x, y)
+        plt.plot(x, [results['random'][metric] for _ in range(len(x))], 'r')
+        plt.ylabel(f'Performance: {metric}')
+        plt.xlabel(f'Threshold similarity')
+        plt.legend(['SP', 'Random'])
+        plt.ylim(0, 1.1)
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -211,3 +229,10 @@ if __name__ == '__main__':
     generator.save_precalculated('precalculated_partitions.gz')
     generator.from_precalculated('precalculated_partitions.gz')
     ds = generator.generate_datasets('torch', 0.35)
+    trial = {
+        th / 100: {'acc': 0.9 + (0.001 * th)}
+        for th in range(30, 100, 5)
+    }
+    trial.update({'random': {'acc': 1}})
+    print(generator.calculate_auspc(trial, 'acc'))
+    HestiaDatasetGenerator.plot_spc(trial, 'acc')
