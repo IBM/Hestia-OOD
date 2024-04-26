@@ -50,7 +50,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
 def calculate_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
-    species: str = 'protein',
+    data_type: str = 'protein',
     similarity_metric: str = 'mmseqs+prefilter',
     field_name: str = 'sequence',
     threshold: float = 0.3,
@@ -76,10 +76,10 @@ def calculate_similarity(
     similarities. If not specified, the `df_query` will be used as `df_target`
     as well, defaults to None
     :type df_target: pd.DataFrame, optional
-    :param species: Biochemical species to which the data belongs.
+    :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type species: str, optional
+    :type data_type: str, optional
     :param similarity_metric: Similarity function to use.
     Options:
         - `protein`: `mmseqs` (local alignment),
@@ -157,8 +157,8 @@ def calculate_similarity(
         - "endextend": 0.5,
         - "matrix": "EBLOSUM62"
     :type config: dict, optional
-    :raises NotImplementedError: Biochemical species is not supported
-                                 see `species`.
+    :raises NotImplementedError: Biochemical data_type is not supported
+                                 see `data_type`.
     :raises NotImplementedError: Similarity metric is not supported
                                  see `similarity_algorithm`
     :return: DataFrame with similarities (`metric`) between
@@ -168,10 +168,10 @@ def calculate_similarity(
     :rtype: pd.DataFrame
     """
     mssg = f'Alignment method: {similarity_metric} '
-    mssg += f'not implemented for species: {species}'
-    mssg2 = f'Species: {species} not supported'
+    mssg += f'not implemented for data_type: {data_type}'
+    mssg2 = f'data_type: {data_type} not supported'
 
-    if species == 'protein':
+    if data_type == 'protein':
         if 'mmseqs' in similarity_metric:
             sim_df = _mmseqs2_alignment(
                 df_query=df_query,
@@ -215,9 +215,9 @@ def calculate_similarity(
             )
         else:
             mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for species: {species}'
+            mssg += f'not implemented for data_type: {data_type}'
             raise NotImplementedError(mssg)
-    elif species.upper() == 'DNA' or species.upper() == 'RNA':
+    elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
         if 'mmseqs' in similarity_metric:
             sim_df = _mmseqs2_alignment(
                 df_query=df_query,
@@ -247,9 +247,9 @@ def calculate_similarity(
             )
         else:
             mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for species: {species}'
+            mssg += f'not implemented for data_type: {data_type}'
             raise NotImplementedError(mssg)
-    elif species == 'small_molecule' or species.lower() == 'smiles':
+    elif data_type == 'small_molecule' or data_type.lower() == 'smiles':
         if similarity_metric == 'scaffold':
             sim_df = _scaffold_alignment(
                 df_query=df_query,
@@ -274,6 +274,9 @@ def calculate_similarity(
                 save_alignment=save_alignment,
                 filename=filename
             )
+        else:
+            mssg = f'Alignment method: {similarity_metric} '
+            mssg += f'not implemented for data_type: {data_type}'
     else:
         raise NotImplementedError(mssg2)
     return sim_df

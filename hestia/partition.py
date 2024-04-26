@@ -43,18 +43,18 @@ def random_partition(
     return train_df, test_df
 
 
-def connected_components_partition(
+def ccpart(
     df: pd.DataFrame,
-    similarity_metric: str,
-    field_name: str,
-    label_name: str,
+    similarity_metric: str = None,
+    field_name: str = None,
+    label_name: str = None,
     threads: int = cpu_count(),
     denominator: str = None,
     test_size: float = 0.2,
     valid_size: float = 0.0,
     threshold: float = 0.3,
     verbose: int = 0,
-    species: str = 'protein',
+    data_type: str = 'protein',
     distance: str = 'tanimoto',
     representation: str = '3di+aa',
     bits: int = 1024,
@@ -62,7 +62,7 @@ def connected_components_partition(
     config: dict = None,
     sim_df: Optional[pd.DataFrame] = None
 ) -> Union[Tuple[list, list], Tuple[list, list, list]]:
-    """Use connected components partitioning algorithm
+    """Use CCPart algorithm
     to generate training and evaluation subsets
     that maximise the dissimilarity between their
     entities.
@@ -120,10 +120,10 @@ def connected_components_partition(
         - 2: All
     Defaults to 0
     :type verbose: int, optional
-    :param species: Biochemical species to which the data belongs.
+    :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type species: str, optional
+    :type data_type: str, optional
     :param distance: Distance metrics for small molecule comparison.
     Currently, it is restricted to Tanimoto distance will
     be extended in future patches; if interested in a specific
@@ -175,7 +175,7 @@ def connected_components_partition(
 
     if sim_df is None:
         sim_df = calculate_similarity(
-            df, df, species=species,
+            df, df, data_type=data_type,
             similarity_metric=similarity_metric,
             field_name=field_name, threshold=threshold,
             threads=threads, verbose=verbose,
@@ -251,7 +251,7 @@ def reduction_partition(
     valid_size: float = 0.0,
     threshold: float = 0.3,
     verbose: int = 2,
-    species: str = 'protein',
+    data_type: str = 'protein',
     representation: str = '3di+aa',
     random_state: int = 42,
     bits: int = 1024,
@@ -318,10 +318,10 @@ def reduction_partition(
         - 2: All
     Defaults to 0
     :type verbose: int, optional
-    :param species: Biochemical species to which the data belongs.
+    :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type species: str, optional
+    :type data_type: str, optional
     :param distance: Distance metrics for small molecule comparison.
     Currently, it is restricted to Tanimoto distance will
     be extended in future patches; if interested in a specific
@@ -362,7 +362,7 @@ def reduction_partition(
     """
     df = similarity_reduction(df, similarity_metric, field_name,
                               threads, clustering_mode, denominator,
-                              test_size, threshold, verbose, species,
+                              test_size, threshold, verbose, data_type,
                               representation, bits,
                               radius, sim_df, config)
     train, test = random_partition(df.index.tolist(), test_size=test_size,
@@ -388,7 +388,7 @@ def graph_part(
     threshold: float = 0.3,
     verbose: int = 2,
     n_parts: int = 10,
-    species: str = 'protein',
+    data_type: str = 'protein',
     distance: str = 'tanimoto',
     representation: str = '3di+aa',
     bits: int = 1024,
@@ -454,10 +454,10 @@ def graph_part(
         - 2: All
     Defaults to 0
     :type verbose: int, optional
-    :param species: Biochemical species to which the data belongs.
+    :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type species: str, optional
+    :type data_type: str, optional
     :param distance: Distance metrics for small molecule comparison.
     Currently, it is restricted to Tanimoto distance will
     be extended in future patches; if interested in a specific
@@ -498,7 +498,7 @@ def graph_part(
     """
     if sim_df is None:
         sim_df = calculate_similarity(
-            df, df, species=species,
+            df, df, data_type=data_type,
             similarity_metric=similarity_metric,
             field_name=field_name, threshold=threshold,
             threads=threads, verbose=verbose,
