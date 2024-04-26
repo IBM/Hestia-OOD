@@ -454,7 +454,7 @@ def _fingerprint_alignment(
         target_fps = thread_map(_get_fp, df_query[field_name],
                                 max_workers=threads)
 
-    chunk_size = threads * 100
+    chunk_size = threads * 1_000
     chunks_target = (len(df_target) // chunk_size) + 1
     queries, targets, metrics = [], [], []
     pbar = tqdm(range(len(query_fps)))
@@ -463,7 +463,6 @@ def _fingerprint_alignment(
         for chunk in pbar:
             jobs = []
             for chunk_t in range(chunks_target):
-                pbar.set_description(f'Covered: {chunk_t:,} / {chunks_target:,}')
                 start_t = chunk_t * chunk_size
                 if chunk_t == chunks_target - 1:
                     end_t = -1
