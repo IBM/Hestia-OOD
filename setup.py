@@ -15,7 +15,6 @@ requirements = [
     'scikit-learn',
     'pandas',
     'numpy',
-    'rdkit',
     'tqdm'
 ]
 
