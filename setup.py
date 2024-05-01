@@ -21,7 +21,7 @@ requirements = [
 test_requirements = requirements
 
 setup(
-author="Raul Fernandez-Diaz",
+    author="Raul Fernandez-Diaz",
     author_email='raul.fernandezdiaz@ucdconnect.ie',
     python_requires='>=3.9',
     classifiers=[
