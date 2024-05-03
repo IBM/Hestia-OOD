@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import scipy.sparse as spr
+from concurrent.futures import ThreadPoolExecutor
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
@@ -50,7 +51,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
 def calculate_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
-    species: str = 'protein',
+    data_type: str = 'protein',
     similarity_metric: str = 'mmseqs+prefilter',
     field_name: str = 'sequence',
     threshold: float = 0.3,
@@ -76,10 +77,10 @@ def calculate_similarity(
     similarities. If not specified, the `df_query` will be used as `df_target`
     as well, defaults to None
     :type df_target: pd.DataFrame, optional
-    :param species: Biochemical species to which the data belongs.
+    :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type species: str, optional
+    :type data_type: str, optional
     :param similarity_metric: Similarity function to use.
     Options:
         - `protein`: `mmseqs` (local alignment),
@@ -157,8 +158,8 @@ def calculate_similarity(
         - "endextend": 0.5,
         - "matrix": "EBLOSUM62"
     :type config: dict, optional
-    :raises NotImplementedError: Biochemical species is not supported
-                                 see `species`.
+    :raises NotImplementedError: Biochemical data_type is not supported
+                                 see `data_type`.
     :raises NotImplementedError: Similarity metric is not supported
                                  see `similarity_algorithm`
     :return: DataFrame with similarities (`metric`) between
@@ -168,10 +169,10 @@ def calculate_similarity(
     :rtype: pd.DataFrame
     """
     mssg = f'Alignment method: {similarity_metric} '
-    mssg += f'not implemented for species: {species}'
-    mssg2 = f'Species: {species} not supported'
+    mssg += f'not implemented for data_type: {data_type}'
+    mssg2 = f'data_type: {data_type} not supported'
 
-    if species == 'protein':
+    if data_type == 'protein':
         if 'mmseqs' in similarity_metric:
             sim_df = _mmseqs2_alignment(
                 df_query=df_query,
@@ -215,9 +216,9 @@ def calculate_similarity(
             )
         else:
             mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for species: {species}'
+            mssg += f'not implemented for data_type: {data_type}'
             raise NotImplementedError(mssg)
-    elif species.upper() == 'DNA' or species.upper() == 'RNA':
+    elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
         if 'mmseqs' in similarity_metric:
             sim_df = _mmseqs2_alignment(
                 df_query=df_query,
@@ -247,9 +248,9 @@ def calculate_similarity(
             )
         else:
             mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for species: {species}'
+            mssg += f'not implemented for data_type: {data_type}'
             raise NotImplementedError(mssg)
-    elif species == 'small_molecule' or species.lower() == 'smiles':
+    elif data_type == 'small_molecule' or data_type.lower() == 'smiles':
         if similarity_metric == 'scaffold':
             sim_df = _scaffold_alignment(
                 df_query=df_query,
@@ -274,6 +275,9 @@ def calculate_similarity(
                 save_alignment=save_alignment,
                 filename=filename
             )
+        else:
+            mssg = f'Alignment method: {similarity_metric} '
+            mssg += f'not implemented for data_type: {data_type}'
     else:
         raise NotImplementedError(mssg2)
     return sim_df
@@ -388,10 +392,6 @@ def _fingerprint_alignment(
     filename: str = None,
     **kwargs
 ) -> Union[pd.DataFrame, np.ndarray]:
-    # Threshold for similarity evaluation: 0.85, based on:
-    # Patterson DE, Cramer RD, Ferguson AM, Clark RD, Weinberger LE:
-    # Neighborhood behavior: A useful concept for validation of ''molecular
-    # diversity'' descriptors. J Med Chem 1996, 39:3049-3059.
     """_summary_
 
     :param df_query: _description_
@@ -427,9 +427,14 @@ def _fingerprint_alignment(
         from rdkit import Chem
         from rdkit import DataStructs
         from rdkit.Chem import AllChem
+        from tqdm.contrib.concurrent import thread_map
     except ModuleNotFoundError:
         raise ImportError("This function requires RDKit to be installed.")
-    from concurrent.futures import ThreadPoolExecutor
+
+    def _get_fp(smile: str):
+        mol = Chem.MolFromSmiles(smile)
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, bits)
+        return fp
 
     def _compute_tanimoto(query_fp: list, target_fps: list):
         scores = DataStructs.BulkTanimotoSimilarity(query_fp, target_fps)
@@ -443,43 +448,50 @@ def _fingerprint_alignment(
     if verbose > 0:
         print(f'Calculating molecular similarities using ECFP-{radius * 2}',
               f'with {bits:,} bits and Tanimoto distance...')
+    query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads)
 
     if df_target is None:
         df_target = df_query
+        target_fps = query_fps
+    else:
+        target_fps = thread_map(_get_fp, df_query[field_name],
+                                max_workers=threads)
 
-    mols_query = [Chem.MolFromSmiles(smiles) for smiles in df_query[field_name]]
-    mols_target = [Chem.MolFromSmiles(smiles) for smiles in df_target[field_name]]
-    fps_query = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                 for x in mols_query]
-    fps_target = [AllChem.GetMorganFingerprintAsBitVect(x, radius, bits)
-                  for x in mols_target]
-    jobs = []
+    chunk_size = threads * 1_000
+    chunks_target = (len(df_target) // chunk_size) + 1
+    queries, targets, metrics = [], [], []
+    pbar = tqdm(range(len(query_fps)))
+
     with ThreadPoolExecutor(max_workers=threads) as executor:
-        for query_fp in fps_query:
-            job = executor.submit(_compute_tanimoto, query_fp, fps_target)
-            jobs.append(job)
+        for chunk in pbar:
+            jobs = []
+            for chunk_t in range(chunks_target):
+                start_t = chunk_t * chunk_size
+                if chunk_t == chunks_target - 1:
+                    end_t = -1
+                else:
+                    end_t = (chunk_t + 1) * chunk_size
+                chunk_fps = target_fps[start_t:end_t]
+                query_fp = query_fps[chunk]
+                job = executor.submit(_compute_tanimoto, query_fp, chunk_fps)
+                jobs.append(job)
 
-        if verbose > 1:
-            pbar = tqdm(jobs)
-        else:
-            pbar = jobs
+            for idx, job in enumerate(jobs):
+                if job.exception() is not None:
+                    raise RuntimeError(job.exception())
+                result = job.result()
+                for idx_target, metric in enumerate(result):
+                    if metric < threshold:
+                        continue
+                    queries.append(int(chunk))
+                    targets.append(int((idx * chunk_size) + idx_target))
+                    metrics.append(metric)
+    df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
 
-        proto_df = []
-        for idx, job in enumerate(pbar):
-            if job.exception() is not None:
-                raise RuntimeError(job.exception())
-            result = job.result()
-            entry = [{'query': idx, 'target': idx_target, 'metric': metric}
-                     for idx_target, metric in enumerate(result)]
-            proto_df.extend(entry)
-
-    df = pd.DataFrame(proto_df)
     if save_alignment:
         if filename is None:
             filename = time.time()
         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
-
-    # df = df[df.metric >= threshold]
     return df
 
 
