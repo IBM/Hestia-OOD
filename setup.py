@@ -44,6 +44,7 @@ setup(
     keywords='hestia',
     name='hestia-ood',
     packages=find_packages(),
+    long_description_content_type="text/markdown",
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/IBM/Hestia-OOD',
