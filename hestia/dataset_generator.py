@@ -11,6 +11,8 @@ from hestia.partition import random_partition, ccpart, graph_part
 
 
 class SimilarityArguments:
+    """Dataclass with the inputs for similarity calculation.
+    """
     def __init__(
         self,
         data_type: str = 'protein',
@@ -35,6 +37,96 @@ class SimilarityArguments:
             "matrix": "EBLOSUM62"
         }
     ):
+        """Arguments for similarity calculation.
+
+        :param df_query: DataFrame with query entities to calculate similarities
+        :type df_query: pd.DataFrame
+        :param df_target: DataFrame with target entities to calculate
+        similarities. If not specified, the `df_query` will be used as `df_target`
+        as well, defaults to None
+        :type df_target: pd.DataFrame, optional
+        :param data_type: Biochemical data_type to which the data belongs.
+        Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
+        'protein'
+        :type data_type: str, optional
+        :param similarity_metric: Similarity function to use.
+        Options:
+            - `protein`: `mmseqs` (local alignment),
+            `mmseqs+prefilter` (fast local alignment), `needle` (global
+            alignment), or `foldseek` (structural alignment).
+            - `DNA` or `RNA`: `mmseqs` (local alignment),
+            `mmseqs+prefilter` (fast local alignment), or `needle`
+            (global alignment).
+            - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
+            scaffolds: either identical or not) or
+            `fingerprint` (Tanimoto distance between ECFP (extended connectivity
+            fingerprints))
+        Defaults to `mmseqs+prefilter`.
+        :type similarity_metric: str, optional
+        :param field_name: Name of the field with the entity information
+        (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
+        :type field_name: str, optional
+        :param threshold: Similarity value above which entities will be
+        considered similar, defaults to 0.3
+        :type threshold: float, optional
+        :param threads: Number of threads available for parallalelization,
+        defaults to cpu_count()
+        :type threads: int, optional
+        :param verbose: How much information will be displayed.
+        Options:
+            - 0: Errors,
+            - 1: Warnings,
+            - 2: All
+        Defaults to 0
+        :type verbose: int, optional
+        :param save_alignment: Save file with similarity calculations,
+        defaults to False
+        :type save_alignment: bool, optional
+        :param filename: Filename where to save the similarity calculations
+        requires `save_alignment` set to `True`, defaults to None
+        :type filename: str, optional
+        :param distance: Distance metrics for small molecule comparison.
+        Currently, it is restricted to Tanimoto distance will
+        be extended in future patches; if interested in a specific
+        metric please let us know.
+        Options:
+            - `tanimoto`: Calculates the Tanimoto distance
+        Defaults to 'tanimoto'.
+        :type distance: str, optional
+        :param bits: Number of bits for ECFP, defaults to 1024
+        :type bits: int, optional
+        :param radius: Radius for ECFP calculation, defaults to 2
+        :type radius: int, optional
+        :param denominator: Denominator for sequence alignments, refers
+        to which lenght to be used as denominator for calculating
+        the sequence identity.
+        Options:
+            - `shortest`: The shortest sequence of the pair
+            - `longest`: The longest sequence of the pair 
+                        (recomended only for peptides)
+            - `n_aligned`: Full alignment length 
+                        (recomended with global alignment)
+        Defaults to 'shortest'
+        :type denominator: str, optional
+        :param representation: Representation for protein structures
+        as interpreted by `Foldseek`.
+        Options:
+            - `3di`: 3D interactions vocabulary.
+            - `3di+aa`: 3D interactions vocabulary and amino
+                        acid sequence.
+            - `TM`: global structural alignment (slow)
+        Defaults to '3di+aa'
+        :type representation: str, optional
+        :param config: Dictionary with options for EMBOSS needle module
+        Default values:
+            - "gapopen": 10,
+            - "gapextend": 0.5,
+            - "endweight": True,
+            - "endopen": 10,
+            - "endextend": 0.5,
+            - "matrix": "EBLOSUM62"
+        :type config: dict, optional
+        """
         self.data_type = data_type
         self.similarity_metric = similarity_metric
         self.field_name = field_name
@@ -52,7 +144,16 @@ class SimilarityArguments:
 
 
 class HestiaDatasetGenerator:
+    """Class for generating multiple Dataset
+    partitions for generalisation evaluation.
+    """
     def __init__(self, data: pd.DataFrame):
+        """Initialise class
+
+        :param data: DataFrame with the original data from which
+            datasets will be generated.
+        :type data: pd.DataFrame
+        """
         self.data = data
         self.sim_df = None
         self.partitions = None
@@ -60,6 +161,11 @@ class HestiaDatasetGenerator:
         print(f'Number of items in data: {len(self.data)}')
 
     def from_precalculated(self, data_path: str):
+        """Load partition indexes if they have already being calculated.
+
+        :param data_path: Path to saved partition indexes.
+        :type data_path: str
+        """
         with gzip.open(data_path, 'r') as fin:
             self.partitions = json.loads(fin.read().decode('utf-8'))
         new_dict = {}
@@ -71,10 +177,20 @@ class HestiaDatasetGenerator:
         self.partitions = new_dict
 
     def save_precalculated(self, output_path: str):
+        """Save partition indexes to disk for quickier re-running.
+
+        :param output_path: Path where partition indexes should be saved.
+        :type output_path: str
+        """
         with gzip.open(output_path, 'w') as fout:
             fout.write(json.dumps(self.partitions).encode('utf-8'))
 
     def calculate_similarity(self, similarity_args: SimilarityArguments):
+        """Calculate pairwise similarity between all the elements in the dataset.
+
+        :param similarity_args: See similarity arguments entry.
+        :type similarity_args: SimilarityArguments
+        """
         print('Calculating similarity...')
         self.sim_df = calculate_similarity(
             self.data, self.data, data_type=similarity_args.data_type,
@@ -95,6 +211,11 @@ class HestiaDatasetGenerator:
         print('Similarity successfully calculated!')
 
     def load_similarity(self, output_path: str):
+        """Load similarity calculation from file.
+
+        :param output_path: File with similarity calculations.
+        :type output_path: str
+        """
         print('Loading precalculated similarity...')
         self.sim_df = pd.read_csv(output_path, compression='gzip')
         print('Precalculated similarity loaded successfully!')
@@ -103,13 +224,42 @@ class HestiaDatasetGenerator:
         self,
         label_name: str = None,
         min_threshold: float = 0.3,
-        threshold_step: float = 0.1,
+        threshold_step: float = 0.05,
         test_size: float = 0.2,
         valid_size: float = 0.1,
         partition_algorithm: str = 'ccpart',
         random_state: int = 42,
         similarity_args: SimilarityArguments = SimilarityArguments()
     ):
+        """Calculate partitions
+
+        :param label_name:  Name of the field with the label information
+        (only use if labels are categorical) (e.g., `class` or `bioactivity`),
+        defaults to None
+        :type label_name: str, optional
+        :param min_threshold: Minimum threshold for the partitions, defaults to 0.3
+        :type min_threshold: float, optional
+        :param threshold_step: Step between each partition similarity threshold, defaults to 0.05
+        :type threshold_step: float, optional
+        :param test_size: Proportion of entities to be allocated to
+        test subset, defaults to 0.2
+        :type test_size: float, optional
+        :param valid_size: Proportion of entities to be allocated
+        to validation subset, defaults to 0.1
+        :type valid_size: float, optional
+        :param partition_algorithm: Algorithm for generating the partitions.
+        Options:
+            - `ccpart`
+            - `graphpart`
+        Defaults to 'ccpart'
+        :type partition_algorithm: str, optional
+        :param random_state: Seed for pseudo-random number
+        generator algorithm, defaults to 42
+        :type random_state: int, optional
+        :param similarity_args: See similarity arguments entry, defaults to SimilarityArguments()
+        :type similarity_args: SimilarityArguments, optional
+        :raises ValueError: Partitioning algorithm not supported.
+        """
         print('Calculating partitions...')
         self.partitions = {}
         if self.sim_df is None:
@@ -186,7 +336,20 @@ class HestiaDatasetGenerator:
             return ds
 
     @staticmethod
-    def calculate_auspc(results: dict, metric: str):
+    def calculate_aboid(results: dict, metric: str) -> float:
+        """Calculate Area between the similarity-performance
+        curve (out-of-distribution) and the in-distribution performance.
+
+        :param results: Dictionary with key the partition (either threshold
+        value or `random`) and value another dictionary with key the metric name
+        and value the metric value.
+        :type results: dict
+        :param metric: Name of the metric for which the AUSPC is going to be
+        calculated
+        :type metric: str
+        :return: AUSPC value
+        :rtype: float
+        """
         x, y = [], []
         for key, value in results.items():
             if key == 'random':
@@ -196,7 +359,18 @@ class HestiaDatasetGenerator:
         return auc(x, y)
 
     @staticmethod
-    def plot_spc(results: dict, metric: str):
+    def plot_aboid(results: dict, metric: str):
+        """Plot the Area between the similarity-performance
+        curve (out-of-distribution) and the in-distribution performance.
+
+        :param results: Dictionary with key the partition (either threshold
+        value or `random`) and value another dictionary with key the metric name
+        and value the metric value.
+        :type results: dict
+        :param metric: Name of the metric for which the AUSPC is going to be
+        plotted
+        :type metric: str
+        """
         import matplotlib.pyplot as plt
         x, y = [], []
         for key, value in results.items():
@@ -211,28 +385,3 @@ class HestiaDatasetGenerator:
         plt.legend(['SP', 'Random'])
         plt.ylim(0, 1.1)
         plt.show()
-
-
-if __name__ == '__main__':
-    df = pd.read_csv('dili.tab', sep='\t')
-    generator = HestiaDatasetGenerator(df)
-    args = SimilarityArguments(
-        data_type='small_molecule', field_name='Drug',
-        similarity_metric='fingerprint', verbose=3,
-        save_alignment=True
-    )
-    generator.calculate_similarity(args)
-    generator.load_similarity(args.filename + '.csv.gz')
-    generator.calculate_partitions('Y', min_threshold=0.3,
-                                   threshold_step=0.05,
-                                   test_size=0.2, valid_size=0.1)
-    generator.save_precalculated('precalculated_partitions.gz')
-    generator.from_precalculated('precalculated_partitions.gz')
-    ds = generator.generate_datasets('torch', 0.35)
-    trial = {
-        th / 100: {'acc': 0.9 + (0.001 * th)}
-        for th in range(30, 100, 5)
-    }
-    trial.update({'random': {'acc': 1}})
-    print(generator.calculate_auspc(trial, 'acc'))
-    HestiaDatasetGenerator.plot_spc(trial, 'acc')

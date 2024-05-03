@@ -91,7 +91,52 @@ If installation not in conda environment, please check installation instructions
 
 ## Documentation <a name="documentation"></a>
 
-### 1. Similarity calculation
+### 1. DatasetGenerator
+
+The HestiaDatasetGenerator allows for the easy generation of training/validation/evaluation partitions with different similarity thresholds. Enabling the estimation of model generalisation capabilities. It also allows for the calculation of the ABOID (Area between the similarity-performance curve (Out-of-distribution) and the In-distribution performance).
+
+```python
+from hestia.dataset_generator import HestiaDatasetGenerator, SimilarityArguments
+
+# Initialise the generator for a DataFrame
+generator = HestiaDatasetGenerator(df)
+
+# Define the similarity arguments (for more info see the documentation page https://ibm.github.io/Hestia-OOD/datasetgenerator)
+args = SimilarityArguments(
+    data_type='protein', field_name='sequence',
+    similarity_metric='mmseqs2+prefilter', verbose=3,
+    save_alignment=True
+)
+
+# Calculate the similarity
+generator.calculate_similarity(args)
+
+# Load pre-calculated similarities
+generator.load_similarity(args.filename + '.csv.gz')
+
+# Calculate partitions
+generator.calculate_partitions(min_threshold=0.3,
+                               threshold_step=0.05,
+                               test_size=0.2, valid_size=0.1)
+
+# Save partitions
+generator.save_precalculated('precalculated_partitions.gz')
+
+# Load pre-calculated partitions
+generator.from_precalculated('precalculated_partitions.gz')
+
+# Training code
+# ...
+
+# Calculate ABOID
+
+generator.calculate_aboid(results, 'test_mcc')
+
+# Plot ABOID
+generator.plot_aboid(results, 'test_mcc')
+```
+
+### 2. Similarity calculation
 
 Calculating pairwise similarity between the entities within a DataFrame `df_query` or between two DataFrames `df_query` and `df_target` can be achieved through the `calculate_similarity` function:
 
@@ -110,7 +155,7 @@ sim_df = calculate_similarity(df_query, species='protein', similarity_metric='mm
 
 More details about similarity calculation can be found in the [Similarity calculation documentation](https://ibm.github.io/Hestia-OOD/similarity/).
 
-### 2. Clustering
+### 3. Clustering
 
 Clustering the entities within a DataFrame `df` can be achieved through the `generate_clusters` function:
 
@@ -129,12 +174,12 @@ clusters_df = generate_clusters(df, field_name='sequence', sim_df=sim_df,
 There are three clustering algorithms currently supported: `CDHIT`, `greedy_cover_set`, or `connected_components`. More details about clustering can be found in the [Clustering documentation](https://ibm.github.io/Hestia-OOD/clustering/).
 
 
-### 3. Partitioning
+### 4. Partitioning
 
-Partitioning the entities within a DataFrame `df` into a training and an evaluation subsets can be achieved through 4 different functions: `cc_part`, `graph_part`, `reduction_partition`, and `random_partition`. An example of how `cc_part` would be used is:
+Partitioning the entities within a DataFrame `df` into a training and an evaluation subsets can be achieved through 4 different functions: `ccpart`, `graph_part`, `reduction_partition`, and `random_partition`. An example of how `cc_part` would be used is:
 
 ```python
-from hestia.partition import cc_part
+from hestia.partition import ccpart
 import pandas as pd
 
 df = pd.read_csv('example.csv')
