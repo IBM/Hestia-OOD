@@ -2,6 +2,7 @@ import time
 
 import pandas as pd
 from scipy.sparse.csgraph import connected_components
+from tqdm import tqdm
 
 from hestia.similarity import sim_df2mtx
 
@@ -78,16 +79,20 @@ def _greedy_incremental_clustering(
     clustered = set()
     sim_df = sim_df[sim_df['metric'] > threshold]
 
-    for i in df.index:
-        in_cluster = set(sim_df.loc[sim_df['query'] == i, 'target'])
-        in_cluster.update(set(sim_df.loc[sim_df['target'] == i, 'query']))
+    if verbose > 2:
+        pbar = tqdm(df.index)
+    else:
+        pbar = df.index
 
+    for i in pbar:
         if i in clustered:
             continue
+        in_cluster = set(sim_df.loc[sim_df['query'] == i, 'target'])
+        in_cluster.update(set(sim_df.loc[sim_df['target'] == i, 'query']))
+        in_cluster.update(set([i]))
+        in_cluster = in_cluster.difference(clustered)
 
         for j in in_cluster:
-            if i == j:
-                continue
             clusters.append({
                 'cluster': i,
                 'member': j
@@ -99,7 +104,7 @@ def _greedy_incremental_clustering(
     if verbose > 1:
         print('Clustering has generated:',
               f'{len(cluster_df.cluster.unique()):,d} clusters for',
-              f'{len(df):,} entities')
+              f'{len(cluster_df):,} entities')
     return cluster_df
 
 
@@ -111,7 +116,7 @@ def _greedy_cover_set(
 ) -> pd.DataFrame:
     def _find_connectivity(df, sim_df):
         neighbours = []
-        for i in df.index:
+        for i in tqdm(df.index):
             in_cluster = set(sim_df.loc[sim_df['query'] == i, 'target'])
             in_cluster.update(set(sim_df.loc[sim_df['target'] == i, 'query']))
             neighbours.append(in_cluster)
@@ -124,15 +129,19 @@ def _greedy_cover_set(
 
     clusters = []
     clustered = set()
+    if verbose > 2:
+        pbar = tqdm(df.index)
+    else:
+        pbar = df.index
 
-    for i in df.index:
-        in_cluster = neighbours.pop(0)
-
+    for i in pbar:
         if i in clustered:
             continue
+        in_cluster = neighbours.pop(0)
+        in_cluster.update([i])
+        in_cluster = in_cluster.difference(clustered)
+
         for j in in_cluster:
-            if i == j:
-                continue
             clusters.append({
                 'cluster': i,
                 'member': j
@@ -144,7 +153,7 @@ def _greedy_cover_set(
     if verbose > 1:
         print('Clustering has generated:',
               f'{len(cluster_df.cluster.unique()):,d} clusters for',
-              f'{len(df):,} entities')
+              f'{len(cluster_df):,} entities')
     return cluster_df
 
 
@@ -158,7 +167,7 @@ def _connected_components_clustering(
     n, labels = connected_components(matrix, directed=False,
                                      return_labels=True)
     cluster_df = [{'cluster': labels[i],
-                   'member': i} for i in df.index]
+                   'member': i} for i in range(labels.shape[0])]
     if verbose > 0:
         print('Clustering has generated:',
               f'{n:,d} connected componentes for',
