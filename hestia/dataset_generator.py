@@ -158,7 +158,7 @@ class HestiaDatasetGenerator:
         self.sim_df = None
         self.partitions = None
         print('Initialising Hestia Dataset Generator')
-        print(f'Number of items in data: {len(self.data)}')
+        print(f'Number of items in data: {len(self.data):,}')
 
     def from_precalculated(self, data_path: str):
         """Load partition indexes if they have already being calculated.
@@ -260,10 +260,11 @@ class HestiaDatasetGenerator:
         :type similarity_args: SimilarityArguments, optional
         :raises ValueError: Partitioning algorithm not supported.
         """
-        print('Calculating partitions...')
         self.partitions = {}
         if self.sim_df is None:
             self.calculate_similarity(similarity_args)
+        print('Calculating partitions...')
+
         if partition_algorithm == 'ccpart':
             partition_algorithm = ccpart
         elif partition_algorithm == 'graph_part':
