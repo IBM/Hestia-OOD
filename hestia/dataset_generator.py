@@ -312,15 +312,23 @@ class HestiaDatasetGenerator:
         if dataset_type == 'huggingface' or dataset_type == 'hf':
             try:
                 import datasets
+                import pyarrow as pa
             except ImportError:
                 raise ImportError(
                     f"This dataset_type: {dataset_type} requires `datasets` " +
                     "to be installed. Install using: `pip install datasets`"
                     )
             for key, value in self.partitions[threshold].items():
-                ds[key] = datasets.Dataset.from_pandas(
-                    self.data.iloc[value].reset_index()
-                )
+                try:
+                    ds[key] = datasets.Dataset.from_pandas(
+                        self.data.iloc[value].reset_index()
+                    )
+                except pa.ArrowInvalid:
+                    ds[key] = datasets.Dataset.from_dict({
+                        column: [row[column] for idx, row in
+                                 self.data.iloc[value].iterrows()]
+                        for column in self.data.columns
+                    })
             return ds
         elif dataset_type == 'pytorch' or dataset_type == 'torch':
             try:
