@@ -158,7 +158,7 @@ class HestiaDatasetGenerator:
         self.sim_df = None
         self.partitions = None
         print('Initialising Hestia Dataset Generator')
-        print(f'Number of items in data: {len(self.data)}')
+        print(f'Number of items in data: {len(self.data):,}')
 
     def from_precalculated(self, data_path: str):
         """Load partition indexes if they have already being calculated.
@@ -260,10 +260,11 @@ class HestiaDatasetGenerator:
         :type similarity_args: SimilarityArguments, optional
         :raises ValueError: Partitioning algorithm not supported.
         """
-        print('Calculating partitions...')
         self.partitions = {}
         if self.sim_df is None:
             self.calculate_similarity(similarity_args)
+        print('Calculating partitions...')
+
         if partition_algorithm == 'ccpart':
             partition_algorithm = ccpart
         elif partition_algorithm == 'graph_part':
@@ -311,15 +312,23 @@ class HestiaDatasetGenerator:
         if dataset_type == 'huggingface' or dataset_type == 'hf':
             try:
                 import datasets
+                import pyarrow as pa
             except ImportError:
                 raise ImportError(
                     f"This dataset_type: {dataset_type} requires `datasets` " +
                     "to be installed. Install using: `pip install datasets`"
                     )
             for key, value in self.partitions[threshold].items():
-                ds[key] = datasets.Dataset.from_pandas(
-                    self.data.iloc[value].reset_index()
-                )
+                try:
+                    ds[key] = datasets.Dataset.from_pandas(
+                        self.data.iloc[value].reset_index()
+                    )
+                except pa.ArrowInvalid:
+                    ds[key] = datasets.Dataset.from_dict({
+                        column: [row[column] for idx, row in
+                                 self.data.iloc[value].iterrows()]
+                        for column in self.data.columns
+                    })
             return ds
         elif dataset_type == 'pytorch' or dataset_type == 'torch':
             try:
