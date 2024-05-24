@@ -363,8 +363,8 @@ class HestiaDatasetGenerator:
         for key, value in results.items():
             if key == 'random':
                 continue
-            x.append(key)
-            y.append(results['random'][metric] - value[metric])
+            x.append(float(key))
+            y.append(float(results['random'][metric]) - float(value[metric]))
         return auc(x, y)
 
     @staticmethod
@@ -385,8 +385,8 @@ class HestiaDatasetGenerator:
         for key, value in results.items():
             if key == 'random':
                 continue
-            x.append(key)
-            y.append(value[metric])
+            x.append(float(key))
+            y.append(float(value[metric]))
         plt.scatter(x, y)
         plt.plot(x, [results['random'][metric] for _ in range(len(x))], 'r')
         plt.ylabel(f'Performance: {metric}')
