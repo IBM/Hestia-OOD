@@ -10,6 +10,8 @@ nav:
   - Similarity reduction: reduction/
   - Clustering algorithms: clustering/
 - Code reference:
+  - Dataset generator:
+      - datasetgenerator.md
   - Similarity calculation:
       - similarity.md
   - Partitioning algorithms:
