@@ -10,9 +10,9 @@
 
 </div>
 
-- **Documentation:**  <a href="https://ibm.github.io/AutoPeptideML/" target="_blank">https://ibm.github.io/Hestia-OOD</a>
-- **Source Code:** <a href="https://github.com/IBM/AutoPeptideML" target="_blank">https://github.com/IBM/Hestia-OOD</a>
-- **Webserver:** <a href="http://peptide.ucd.ie/AutoPeptideML" target="_blank">http://peptide.ucd.ie/Hestia</a>
+- **Documentation:**  <a href="https://ibm.github.io/Hestia-OOD/" target="_blank">https://ibm.github.io/Hestia-OOD</a>
+- **Source Code:** <a href="https://github.com/IBM/Hestia-OOD" target="_blank">https://github.com/IBM/Hestia-OOD</a>
+- **Webserver:** <a href="http://peptide.ucd.ie/Hestia" target="_blank">http://peptide.ucd.ie/Hestia</a>
 - **Paper Pre-print:** <a href="https://www.biorxiv.org/content/10.1101/2024.03.14.584508v1" target="_blank">https://www.biorxiv.org/content/10.1101/2024.03.14.584508v1</a>
 
 ## Contents
