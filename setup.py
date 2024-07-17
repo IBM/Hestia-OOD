@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 """The setup script."""
-import os
 from setuptools import setup, find_packages
 from pathlib import Path
 
@@ -15,12 +14,7 @@ requirements = [
     'scikit-learn',
     'pandas',
     'numpy',
-    'tqdm',
-    'scikit-plot',
-    'tokenizers',
-    'torch',
-    'transformers',
-    'lightgbm'
+    'tqdm'
 ]
 
 test_requirements = requirements
@@ -47,6 +41,7 @@ setup(
     long_description=readme + '\n\n',
     include_package_data=True,
     keywords='hestia',
+    data_files=[('hestia/utils/mmseqs_fake_prefilter.sh')],
     name='hestia-ood',
     packages=find_packages(),
     long_description_content_type="text/markdown",
