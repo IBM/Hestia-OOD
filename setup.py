@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 """The setup script."""
-import os
 from setuptools import setup, find_packages
 from pathlib import Path
 
@@ -42,12 +41,13 @@ setup(
     long_description=readme + '\n\n',
     include_package_data=True,
     keywords='hestia',
+    data_files=[('hestia/utils/mmseqs_fake_prefilter.sh')],
     name='hestia-ood',
     packages=find_packages(),
     long_description_content_type="text/markdown",
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/IBM/Hestia-OOD',
-    version='0.0.12',
+    version='0.0.14',
     zip_safe=False,
 )
