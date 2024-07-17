@@ -3,7 +3,7 @@ import os
 import shutil
 import subprocess
 import time
-from typing import List, Union
+from typing import Callable, List, Union
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ def calculate_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     data_type: str = 'protein',
-    similarity_metric: str = 'mmseqs+prefilter',
+    similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
     field_name: str = 'sequence',
     threshold: float = 0.3,
     threads: int = cpu_count(),
@@ -64,7 +64,8 @@ def calculate_similarity(
     radius: int = 2,
     denominator: str = 'shortest',
     representation: str = '3di+aa',
-    config: dict = None
+    config: dict = None,
+    **kwargs
 ) -> pd.DataFrame:
     """Calculate similarity between entities in
     `df_query` and `df_target`. Entities can be
@@ -80,7 +81,7 @@ def calculate_similarity(
     :param data_type: Biochemical data_type to which the data belongs.
     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
     'protein'
-    :type data_type: str, optional
+    :type data_type: Union[str, Callable], optional
     :param similarity_metric: Similarity function to use.
     Options:
         - `protein`: `mmseqs` (local alignment),
@@ -93,6 +94,11 @@ def calculate_similarity(
            scaffolds: either identical or not) or
           `fingerprint` (Tanimoto distance between ECFP (extended connectivity
            fingerprints))
+        - It can also be a custom made function. It has to fulfill three requirements
+          1) be symmetrical, 2) be normalised in the interval [0, 1], 3) f(x_i, x_i) = 1.
+          It should support all values within the SimilarityArguments object. If
+          it requires additional inputs they can be added to this wrapper function as
+          key=value options at the end.
     Defaults to `mmseqs+prefilter`.
     :type similarity_metric: str, optional
     :param field_name: Name of the field with the entity information
@@ -172,114 +178,130 @@ def calculate_similarity(
     mssg += f'not implemented for data_type: {data_type}'
     mssg2 = f'data_type: {data_type} not supported'
 
-    if data_type == 'protein':
-        if 'mmseqs' in similarity_metric:
-            sim_df = _mmseqs2_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threshold=threshold,
-                threads=threads,
-                prefilter='prefilter' in similarity_metric,
-                denominator=denominator,
-                is_nucleotide=False,
-                verbose=verbose,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        elif similarity_metric == 'needle':
-            sim_df = _needle_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threshold=threshold,
-                threads=threads,
-                is_nucleotide=False,
-                verbose=verbose,
-                config=config,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        elif similarity_metric == 'foldseek':
-            sim_df = _foldseek_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threshold=threshold,
-                prefilter=False,
-                denominator=denominator,
-                representation=representation,
-                threads=threads,
-                verbose=verbose,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        else:
-            mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for data_type: {data_type}'
-            raise NotImplementedError(mssg)
-    elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
-        if 'mmseqs' in similarity_metric:
-            sim_df = _mmseqs2_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threshold=threshold,
-                threads=threads,
-                prefilter='prefilter' in similarity_metric,
-                denominator=denominator,
-                is_nucleotide=True,
-                verbose=verbose,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        elif similarity_metric == 'needle':
-            sim_df = _needle_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threshold=threshold,
-                threads=threads,
-                is_nucleotide=True,
-                verbose=verbose,
-                config=config,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        else:
-            mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for data_type: {data_type}'
-            raise NotImplementedError(mssg)
-    elif data_type == 'small_molecule' or data_type.lower() == 'smiles':
-        if similarity_metric == 'scaffold':
-            sim_df = _scaffold_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                field_name=field_name,
-                threads=threads,
-                verbose=verbose,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        elif similarity_metric == 'fingerprint':
-            sim_df = _fingerprint_alignment(
-                df_query=df_query,
-                df_target=df_target,
-                threshold=threshold,
-                field_name=field_name,
-                distance=distance,
-                threads=threads,
-                verbose=verbose,
-                bits=bits,
-                radius=radius,
-                save_alignment=save_alignment,
-                filename=filename
-            )
-        else:
-            mssg = f'Alignment method: {similarity_metric} '
-            mssg += f'not implemented for data_type: {data_type}'
+    if isinstance(similarity_metric, Callable):
+        sim_df = similarity_metric(
+            df_query=df_query,
+            df_target=df_target,
+            field_name=field_name,
+            threshold=threshold,
+            threads=threads,
+            prefilter=False,
+            denominator=denominator,
+            is_nucleotide=False,
+            verbose=verbose,
+            save_alignment=save_alignment,
+            filename=filename,
+            **kwargs
+        )
     else:
-        raise NotImplementedError(mssg2)
+        if data_type == 'protein':
+            if 'mmseqs' in similarity_metric:
+                sim_df = _mmseqs2_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threshold=threshold,
+                    threads=threads,
+                    prefilter='prefilter' in similarity_metric,
+                    denominator=denominator,
+                    is_nucleotide=False,
+                    verbose=verbose,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            elif similarity_metric == 'needle':
+                sim_df = _needle_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threshold=threshold,
+                    threads=threads,
+                    is_nucleotide=False,
+                    verbose=verbose,
+                    config=config,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            elif similarity_metric == 'foldseek':
+                sim_df = _foldseek_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threshold=threshold,
+                    prefilter=False,
+                    denominator=denominator,
+                    representation=representation,
+                    threads=threads,
+                    verbose=verbose,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            else:
+                mssg = f'Alignment method: {similarity_metric} '
+                mssg += f'not implemented for data_type: {data_type}'
+                raise NotImplementedError(mssg)
+        elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
+            if 'mmseqs' in similarity_metric:
+                sim_df = _mmseqs2_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threshold=threshold,
+                    threads=threads,
+                    prefilter='prefilter' in similarity_metric,
+                    denominator=denominator,
+                    is_nucleotide=True,
+                    verbose=verbose,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            elif similarity_metric == 'needle':
+                sim_df = _needle_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threshold=threshold,
+                    threads=threads,
+                    is_nucleotide=True,
+                    verbose=verbose,
+                    config=config,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            else:
+                mssg = f'Alignment method: {similarity_metric} '
+                mssg += f'not implemented for data_type: {data_type}'
+                raise NotImplementedError(mssg)
+        elif data_type == 'small_molecule' or data_type.lower() == 'smiles':
+            if similarity_metric == 'scaffold':
+                sim_df = _scaffold_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    field_name=field_name,
+                    threads=threads,
+                    verbose=verbose,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            elif similarity_metric == 'fingerprint':
+                sim_df = _fingerprint_alignment(
+                    df_query=df_query,
+                    df_target=df_target,
+                    threshold=threshold,
+                    field_name=field_name,
+                    distance=distance,
+                    threads=threads,
+                    verbose=verbose,
+                    bits=bits,
+                    radius=radius,
+                    save_alignment=save_alignment,
+                    filename=filename
+                )
+            else:
+                mssg = f'Alignment method: {similarity_metric} '
+                mssg += f'not implemented for data_type: {data_type}'
+        else:
+            raise NotImplementedError(mssg2)
     return sim_df
 
 

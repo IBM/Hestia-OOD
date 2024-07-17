@@ -1,7 +1,9 @@
 import gzip
 import json
 from multiprocessing import cpu_count
+from typing import Callable, Union
 
+import numpy as np
 import pandas as pd
 from sklearn.metrics import auc
 from tqdm import tqdm
@@ -46,8 +48,8 @@ class SimilarityArguments:
         as well, defaults to None
         :type df_target: pd.DataFrame, optional
         :param data_type: Biochemical data_type to which the data belongs.
-        Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
-        'protein'
+        Options: `protein`, `protein_structure`, `DNA`, `RNA`, or
+        `small_molecule`; defaults to 'protein'
         :type data_type: str, optional
         :param similarity_metric: Similarity function to use.
         Options:
@@ -281,8 +283,8 @@ class HestiaDatasetGenerator:
             th_parts = partition_algorithm(
                 self.data,
                 label_name=label_name, test_size=test_size,
-                valid_size=valid_size, threshold=th / 100,
-                sim_df=self.sim_df
+                threshold=th / 100,
+                sim_df=self.sim_df, verbose=2
             )
             train_th_parts = random_partition(
                 self.data.iloc[th_parts[0]].reset_index(drop=True),
@@ -345,7 +347,7 @@ class HestiaDatasetGenerator:
             return ds
 
     @staticmethod
-    def calculate_aboid(results: dict, metric: str) -> float:
+    def calculate_augood(results: dict, metric: str) -> float:
         """Calculate Area between the similarity-performance
         curve (out-of-distribution) and the in-distribution performance.
 
@@ -364,11 +366,14 @@ class HestiaDatasetGenerator:
             if key == 'random':
                 continue
             x.append(float(key))
-            y.append(float(results['random'][metric]) - float(value[metric]))
-        return auc(x, y)
+            y.append(float(value[metric]))
+        idxs = np.argsort(x)
+        x, y = np.array(x), np.array(y)
+        min_x, max_x = np.min(x), np.max(x)
+        return auc(x[idxs], y[idxs]) / (max_x - min_x)
 
     @staticmethod
-    def plot_aboid(results: dict, metric: str):
+    def plot_good(results: dict, metric: str):
         """Plot the Area between the similarity-performance
         curve (out-of-distribution) and the in-distribution performance.
 
@@ -387,10 +392,12 @@ class HestiaDatasetGenerator:
                 continue
             x.append(float(key))
             y.append(float(value[metric]))
-        plt.scatter(x, y)
-        plt.plot(x, [results['random'][metric] for _ in range(len(x))], 'r')
+        idxs = np.argsort(x)
+        x, y = np.array(x), np.array(y)
+        plt.plot(x[idxs], y[idxs])
+        # plt.plot(x[idxs], [results['random'][metric] for _ in range(len(x))], 'r')
         plt.ylabel(f'Performance: {metric}')
         plt.xlabel(f'Threshold similarity')
-        plt.legend(['SP', 'Random'])
-        plt.ylim(0, 1.1)
-        plt.show()
+        # plt.legend(['SP', 'Random'])
+        # plt.ylim(0, 1.1)
+        # plt.show()
