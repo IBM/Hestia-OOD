@@ -49,7 +49,7 @@ def ccpart(
     field_name: str = None,
     label_name: str = None,
     threads: int = cpu_count(),
-    denominator: str = None,
+    denominator: str = 'n_aligned',
     test_size: float = 0.2,
     valid_size: float = 0.0,
     threshold: float = 0.3,
@@ -102,7 +102,7 @@ def ccpart(
                     (recomended only for peptides)
         - `n_aligned`: Full alignment length 
                       (recomended with global alignment)
-    Defaults to 'shortest'
+    Defaults to 'n_aligned'
     :type denominator: str, optional
     :param test_size: Proportion of entities to be allocated to
     test subset, defaults to 0.2
@@ -381,7 +381,7 @@ def graph_part(
     field_name: str = None,
     label_name: str = None,
     threads: int = cpu_count(),
-    denominator: str = None,
+    denominator: str = 'n_aligned',
     test_size: float = 0.0,
     valid_size: float = 0.0,
     threshold: float = 0.3,
