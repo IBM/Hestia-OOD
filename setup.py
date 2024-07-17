@@ -15,7 +15,12 @@ requirements = [
     'scikit-learn',
     'pandas',
     'numpy',
-    'tqdm'
+    'tqdm',
+    'scikit-plot',
+    'tokenizers',
+    'torch',
+    'transformers',
+    'lightgbm'
 ]
 
 test_requirements = requirements
@@ -48,6 +53,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/IBM/Hestia-OOD',
-    version='0.0.12',
+    version='0.0.13',
     zip_safe=False,
 )
