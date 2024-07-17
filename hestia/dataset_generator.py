@@ -1,6 +1,7 @@
 import gzip
 import json
 from multiprocessing import cpu_count
+from typing import Callable, Union
 
 import numpy as np
 import pandas as pd
