@@ -162,6 +162,12 @@ class HestiaDatasetGenerator:
         print('Initialising Hestia Dataset Generator')
         print(f'Number of items in data: {len(self.data):,}')
 
+    def get_partition(self, partition: Union[str, float]) -> dict:
+        return self.partitions[partition]
+
+    def get_partitions(self) -> dict:
+        return self.partitions.items()
+
     def from_precalculated(self, data_path: str):
         """Load partition indexes if they have already being calculated.
 
