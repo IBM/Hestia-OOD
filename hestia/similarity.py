@@ -30,8 +30,9 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     :rtype: spr.bsr_matrix
     """
     all_rows = []
+    dtype = np.float32
     size = len(sim_df['query'].unique())
-    row_np = np.zeros((1, size), dtype=np.float16)
+    row_np = np.zeros((1, size), dtype=dtype)
     sim_df.sort_values(by='query', ignore_index=True, inplace=True)
     query_grouped = sim_df.groupby(by='query')
 
@@ -41,7 +42,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
         inds, values = inds[slicing], values[slicing]
         new_row_np = row_np.copy()
         new_row_np[:, inds] = values
-        row_scp = spr.csr_array(new_row_np)
+        row_scp = spr.csr_array(new_row_np, dtype=dtype)
         all_rows.append(row_scp)
 
     matrix = spr.csr_matrix(spr.vstack(all_rows))
@@ -447,15 +448,19 @@ def _fingerprint_alignment(
     """
     try:
         from rdkit import Chem
+        from rdkit.Chem import rdFingerprintGenerator
         from rdkit import DataStructs
-        from rdkit.Chem import AllChem
         from tqdm.contrib.concurrent import thread_map
     except ModuleNotFoundError:
         raise ImportError("This function requires RDKit to be installed.")
 
+    mfpgen = rdFingerprintGenerator.GetMorganGenerator(
+        radius=radius, fpSize=bits
+    )
+
     def _get_fp(smile: str):
         mol = Chem.MolFromSmiles(smile)
-        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, bits)
+        fp = mfpgen.GetSparseFingerprint(mol)
         return fp
 
     def _compute_tanimoto(query_fp: list, target_fps: list):
