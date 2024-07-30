@@ -1,7 +1,7 @@
 import gzip
 import json
 from multiprocessing import cpu_count
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -237,7 +237,8 @@ class HestiaDatasetGenerator:
         valid_size: float = 0.1,
         partition_algorithm: str = 'ccpart',
         random_state: int = 42,
-        similarity_args: SimilarityArguments = SimilarityArguments()
+        similarity_args: SimilarityArguments = SimilarityArguments(),
+        n_partitions: Optional[int] = None
     ):
         """Calculate partitions
 
@@ -266,6 +267,8 @@ class HestiaDatasetGenerator:
         :type random_state: int, optional
         :param similarity_args: See similarity arguments entry, defaults to SimilarityArguments()
         :type similarity_args: SimilarityArguments, optional
+        :param n_partitions: Number of partitions to generate, only works with graphpart partitioning algorithm
+        :type n_partitions: int, optional
         :raises ValueError: Partitioning algorithm not supported.
         """
         self.partitions = {}
@@ -290,17 +293,23 @@ class HestiaDatasetGenerator:
                 self.data,
                 label_name=label_name, test_size=test_size,
                 threshold=th / 100,
-                sim_df=self.sim_df, verbose=2
+                sim_df=self.sim_df, verbose=2,
+                n_partitions=n_partitions
             )
             train_th_parts = random_partition(
                 self.data.iloc[th_parts[0]].reset_index(drop=True),
                 test_size=valid_size, random_state=random_state
             )
-            self.partitions[th / 100] = {
-                'train': train_th_parts[0],
-                'valid': train_th_parts[1],
-                'test': th_parts[1]
-            }
+            if n_partitions is None:
+                self.partitions[th / 100] = {
+                    'train': train_th_parts[0],
+                    'valid': train_th_parts[1],
+                    'test': th_parts[1]
+                }
+            else:
+                self.partitions[th / 100] = {
+                    i: th_parts[i] for i in range(n_partitions)
+                }
         random = random_partition(self.data, test_size=test_size,
                                   random_state=random_state)
         train_random = random_partition(

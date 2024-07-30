@@ -60,7 +60,8 @@ def ccpart(
     bits: int = 1024,
     radius: int = 2,
     config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None
+    sim_df: Optional[pd.DataFrame] = None,
+    **kwargs
 ) -> Union[Tuple[list, list], Tuple[list, list, list]]:
     """Use CCPart algorithm
     to generate training and evaluation subsets
