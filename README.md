@@ -167,7 +167,7 @@ df = pd.read_csv('example.csv')
 sim_df = calculate_similarity(df, species='protein', similarity_metric='mmseqs+prefilter',
                               field_name='sequence')
 clusters_df = generate_clusters(df, field_name='sequence', sim_df=sim_df,
-                                cluster_algorithms='CDHIT')
+                                cluster_algorithm='CDHIT')
 ```
 
 There are three clustering algorithms currently supported: `CDHIT`, `greedy_cover_set`, or `connected_components`. More details about clustering can be found in the [Clustering documentation](https://ibm.github.io/Hestia-OOD/clustering/).
