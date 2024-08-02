@@ -498,7 +498,11 @@ def _fingerprint_alignment(
                     end_t = -1
                 else:
                     end_t = (chunk_t + 1) * chunk_size
-                chunk_fps = target_fps[start_t:end_t]
+                if end_t == -1:
+                    chunk_fps = target_fps[start_t:]
+                else:
+                    chunk_fps = target_fps[start_t:end_t]
+
                 query_fp = query_fps[chunk]
                 job = executor.submit(_compute_tanimoto, query_fp, chunk_fps)
                 jobs.append(job)
@@ -513,6 +517,7 @@ def _fingerprint_alignment(
                     queries.append(int(chunk))
                     targets.append(int((idx * chunk_size) + idx_target))
                     metrics.append(metric)
+
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
 
     if save_alignment:
