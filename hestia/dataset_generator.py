@@ -1,7 +1,7 @@
 import gzip
 import json
 from multiprocessing import cpu_count
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -237,7 +237,8 @@ class HestiaDatasetGenerator:
         valid_size: float = 0.1,
         partition_algorithm: str = 'ccpart',
         random_state: int = 42,
-        similarity_args: SimilarityArguments = SimilarityArguments()
+        similarity_args: SimilarityArguments = SimilarityArguments(),
+        n_partitions: Optional[int] = None
     ):
         """Calculate partitions
 
@@ -266,6 +267,8 @@ class HestiaDatasetGenerator:
         :type random_state: int, optional
         :param similarity_args: See similarity arguments entry, defaults to SimilarityArguments()
         :type similarity_args: SimilarityArguments, optional
+        :param n_partitions: Number of partitions to generate, only works with graphpart partitioning algorithm
+        :type n_partitions: int, optional
         :raises ValueError: Partitioning algorithm not supported.
         """
         self.partitions = {}
@@ -273,11 +276,7 @@ class HestiaDatasetGenerator:
             self.calculate_similarity(similarity_args)
         print('Calculating partitions...')
 
-        if partition_algorithm == 'ccpart':
-            partition_algorithm = ccpart
-        elif partition_algorithm == 'graph_part':
-            partition_algorithm = graph_part
-        else:
+        if partition_algorithm not in ['ccpart', 'graph_part']:
             raise ValueError(
                 f'Partition algorithm: {partition_algorithm} is not ' +
                 'supported. Try using: `ccpart` or `graph_part`.'
@@ -286,21 +285,42 @@ class HestiaDatasetGenerator:
         threshold_step = int(threshold_step * 100)
 
         for th in tqdm(range(min_threshold, 100, threshold_step)):
-            th_parts = partition_algorithm(
-                self.data,
-                label_name=label_name, test_size=test_size,
-                threshold=th / 100,
-                sim_df=self.sim_df, verbose=2
-            )
-            train_th_parts = random_partition(
-                self.data.iloc[th_parts[0]].reset_index(drop=True),
-                test_size=valid_size, random_state=random_state
-            )
-            self.partitions[th / 100] = {
-                'train': train_th_parts[0],
-                'valid': train_th_parts[1],
-                'test': th_parts[1]
-            }
+            if partition_algorithm == 'ccpart':
+                th_parts = ccpart(
+                    self.data,
+                    label_name=label_name, test_size=test_size,
+                    threshold=th / 100,
+                    sim_df=self.sim_df, verbose=2
+                )
+            elif partition_algorithm == 'graph_part':
+                try:
+                    th_parts = graph_part(
+                        self.data,
+                        label_name=label_name,
+                        test_size=test_size if n_partitions is None else 0.0,
+                        threshold=th / 100,
+                        sim_df=self.sim_df, verbose=2,
+                        n_parts=n_partitions
+                    )
+                except RuntimeError:
+                    continue
+
+            if n_partitions is None:
+                train_th_parts = random_partition(
+                    self.data.iloc[th_parts[0]].reset_index(drop=True),
+                    test_size=valid_size, random_state=random_state
+                )
+                self.partitions[th / 100] = {
+                    'train': train_th_parts[0],
+                    'valid': train_th_parts[1],
+                    'test': th_parts[1]
+                }
+            else:
+                th_parts = [[i[0] for i in part] for part in th_parts]
+                self.partitions[th / 100] = {
+                    i: th_parts[i] for i in range(n_partitions)
+                }
+
         random = random_partition(self.data, test_size=test_size,
                                   random_state=random_state)
         train_random = random_partition(
