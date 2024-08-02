@@ -49,7 +49,17 @@ pip install hestia-ood
 pip install git+https://github.com/IBM/Hestia-OOD
 ```
 
-### 3. Third-party dependencies
+### 3. Optional dependencies
+
+#### 3.1. Molecular similarity
+
+RDKit is a dependency necessary for calculating molecular similarities:
+
+```bash
+pip install rdkit
+```
+
+#### 3.2. Sequence alignment
 
 For using MMSeqs as alignment algorithm is necessary install it in the environment:
 
