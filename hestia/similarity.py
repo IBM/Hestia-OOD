@@ -577,7 +577,7 @@ def _foldseek_alignment(
         pass
     elif shutil.which('foldseek') is None:
         mssg = "Foldseek not found. Please install following the instructions"
-        mssg += " in: https://github.com/IBM/Hestia#installation"
+        mssg += " in: https://github.com/IBM/Hestia-OOD#installation"
         raise ImportError(mssg)
     else:
         foldseek = 'foldseek'
@@ -724,7 +724,7 @@ def _mmseqs2_alignment(
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
             "MMSeqs2 not found. Please install following the instructions in:",
-            "https://github.com/IBM/AutoPeptideML#installation"
+            "https://github.com/IBM/Hestia-OOD#installation"
         )
     from hestia.utils.file_format import _write_fasta
 
