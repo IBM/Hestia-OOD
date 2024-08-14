@@ -3,7 +3,7 @@ import os
 import shutil
 import subprocess
 import time
-from typing import Callable, List, Union
+from typing import Callable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     :rtype: spr.bsr_matrix
     """
     all_rows = []
-    dtype = np.float32
+    dtype = np.float16
     size = len(sim_df['query'].unique())
     row_np = np.zeros((1, size), dtype=dtype)
     sim_df.sort_values(by='query', ignore_index=True, inplace=True)
@@ -50,8 +50,8 @@ def sim_df2mtx(sim_df: pd.DataFrame,
 
 
 def calculate_similarity(
-    df_query: pd.DataFrame,
-    df_target: pd.DataFrame = None,
+    df_query: Union[pd.DataFrame, np.ndarray],
+    df_target: Optional[Union[pd.DataFrame, np.ndarray]] = None,
     data_type: str = 'protein',
     similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
     field_name: str = 'sequence',
@@ -193,6 +193,13 @@ def calculate_similarity(
             save_alignment=save_alignment,
             filename=filename,
             **kwargs
+        )
+    elif similarity_metric == 'embedding':
+        sim_df = _embedding_distance(
+            query_embds=df_query, target_embds=df_target,
+            distance=distance, threads=threads,
+            save_alignment=save_alignment, filename=filename,
+            to_df=kwargs['to_df']
         )
     else:
         if data_type == 'protein':
@@ -401,6 +408,37 @@ def _scaffold_alignment(
     return df
 
 
+def _embedding_distance(
+    query_embds: np.ndarray,
+    target_embds: Optional[np.ndarray] = None,
+    distance: Union[str, Callable] = 'cosine',
+    threads: int = cpu_count(),
+    save_alignment: bool = False,
+    filename: str = None,
+    to_df: bool = True,
+    **kwargs
+) -> pd.DataFrame:
+    try:
+        from scipy.spatial.distance import cdist
+    except ModuleNotFoundError:
+        raise ImportError("This function requires Scipy to be installed.")
+
+    if target_embds is None:
+        target_embds = query_embds
+    mtx = cdist(query_embds, target_embds, metric=distance)
+    data = []
+    for idx in tqdm(range(mtx.shape[0])):
+        for idx2 in range(mtx.shape[1]):
+            data.append({'query': idx, 'target': idx2,
+                         'metric': mtx[idx, idx2]})
+    df = pd.DataFrame(data)
+    if save_alignment:
+        if filename is None:
+            filename = time.time()
+        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+    return df
+
+
 def _fingerprint_alignment(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
@@ -414,7 +452,7 @@ def _fingerprint_alignment(
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
-) -> Union[pd.DataFrame, np.ndarray]:
+) -> pd.DataFrame:
     """_summary_
 
     :param df_query: _description_
@@ -577,7 +615,7 @@ def _foldseek_alignment(
         pass
     elif shutil.which('foldseek') is None:
         mssg = "Foldseek not found. Please install following the instructions"
-        mssg += " in: https://github.com/IBM/Hestia#installation"
+        mssg += " in: https://github.com/IBM/Hestia-OOD#installation"
         raise ImportError(mssg)
     else:
         foldseek = 'foldseek'
@@ -724,7 +762,7 @@ def _mmseqs2_alignment(
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
             "MMSeqs2 not found. Please install following the instructions in:",
-            "https://github.com/IBM/AutoPeptideML#installation"
+            "https://github.com/IBM/Hestia-OOD#installation"
         )
     from hestia.utils.file_format import _write_fasta
 
