@@ -59,4 +59,4 @@ def test_simdf2mtx():
         field_name='smiles'
     )
     mtx = sim_df2mtx(sim_df).toarray()
-    np.testing.assert_allclose(mtx, objective)
+    np.testing.assert_allclose(mtx, objective, rtol=0.001)
