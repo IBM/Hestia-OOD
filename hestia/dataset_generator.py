@@ -137,7 +137,7 @@ class SimilarityArguments:
         self.radius = radius
         self.denominator = denominator
         self.representation = representation
-        self.config = config
+        self.needle_config = needle_config
 
         if self.data_type == 'small_molecule':
             self.distance = 'tanimoto'
@@ -342,7 +342,7 @@ class HestiaDatasetGenerator:
                 'radius': similarity_args.radius,
                 'denominator': similarity_args.denominator,
                 'representation': similarity_args.representation,
-                'needle_config': similarity_args.config
+                'needle_config': similarity_args.needle_config
             }
         }
         self.partitions = {}
