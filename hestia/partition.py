@@ -234,9 +234,9 @@ def ccpart(
               f'{len(valid) /  len(df) * 100:.2f} %')
 
     if valid_size > 0:
-        return train, test, valid
+        return train, test, valid, partition_labs
     else:
-        return train, test
+        return train, test, partition_labs
 
 
 def reduction_partition(
@@ -549,7 +549,7 @@ def graph_part(
                                           return_counts=True)
 
     while E_f.sum() > 0:
-        clusters, E_f = _cluster_reassignment(mtx, clusters, removed)
+        re_clusters, E_f = _cluster_reassignment(mtx, clusters, removed)
         i += 1
 
         if E_f.sum() > 0:
@@ -562,7 +562,7 @@ def graph_part(
                 pbar.set_description(mssg)
                 pbar.update(1)
 
-        clus_labs, clusters_sizes = np.unique(clusters[removed],
+        clus_labs, clusters_sizes = np.unique(re_clusters[removed],
                                               return_counts=True)
         if len(clus_labs) < n_parts:
             mssg = 'Dataset cannot be partitioned at current threshold '
@@ -582,7 +582,7 @@ def graph_part(
     if test_size > 0.0:
         train, test = [], []
         for clus in clus_labs:
-            members = clusters == clus
+            members = re_clusters == clus
             cluster_size = members[removed].sum()
 
             if (cluster_size + test_len) / removed.sum() > test_size:
@@ -594,7 +594,7 @@ def graph_part(
         if valid_size > 0.0:
             new_train, valid = [], []
             for clus in train:
-                members = clusters == clus
+                members = re_clusters == clus
                 cluster_size = members[removed].sum()
 
                 if (cluster_size + valid_len) / removed.sum() > valid_size:
@@ -604,15 +604,15 @@ def graph_part(
                     valid.append(clus)
 
             for clus in new_train:
-                members = np.argwhere((clusters == clus) * removed)
+                members = np.argwhere((re_clusters == clus) * removed)
                 for member in members:
                     o_train.append(member.tolist()[0])
             for clus in test:
-                members = np.argwhere((clusters == clus) * removed)
+                members = np.argwhere((re_clusters == clus) * removed)
                 for member in members:
                     o_test.append(member.tolist()[0])
             for clus in valid:
-                members = np.argwhere((clusters == clus) * removed)
+                members = np.argwhere((re_clusters == clus) * removed)
                 for member in members:
                     o_valid.append(member.tolist()[0])
             if verbose > 0:
@@ -622,14 +622,14 @@ def graph_part(
                     f'{(len(o_test) / removed.sum()) * 100:.2f} %')
                 print('Proportion valid:',
                     f'{(len(o_valid) /  removed.sum()) * 100:.2f} %')
-            return o_train, o_test, o_valid
+            return o_train, o_test, o_valid, clusters
         else:
             for clus in train:
-                members = np.argwhere((clusters == clus) * removed)
+                members = np.argwhere((re_clusters == clus) * removed)
                 for member in members:
                     o_train.append(member.tolist()[0])
             for clus in test:
-                members = np.argwhere((clusters == clus) * removed)
+                members = np.argwhere((re_clusters == clus) * removed)
                 for member in members:
                     o_test.append(member.tolist()[0])
             if verbose > 0:
@@ -637,12 +637,12 @@ def graph_part(
                     f'{(len(o_train) / removed.sum()) * 100:.2f} %')
                 print('Proportion test:',
                     f'{(len(o_test) /  removed.sum()) * 100:.2f} %')
-            return o_train, o_test
+            return o_train, o_test, clusters
 
     partitions = []
     for clus in clus_labs:
-        members = (clusters == clus) * removed
+        members = (re_clusters == clus) * removed
         inds = np.argwhere(members)
         partitions.append(inds.tolist())
 
-    return partitions
+    return partitions, clusters

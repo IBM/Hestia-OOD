@@ -25,19 +25,12 @@ class SimilarityArguments:
         verbose: int = 0,
         save_alignment: bool = False,
         filename: str = 'alignment',
-        distance: str = 'tanimoto',
-        bits: str = 1024,
-        radius: int = 2,
-        denominator: str = 'shortest',
-        representation: str = '3di+aa',
-        config: dict = {
-            "gapopen": 10,
-            "gapextend": 0.5,
-            "endweight": True,
-            "endopen": 10,
-            "endextend": 0.5,
-            "matrix": "EBLOSUM62"
-        }
+        distance: Optional[str] = None,
+        bits: Optional[int] = None,
+        radius: Optional[int] = None,
+        denominator: Optional[str] = None,
+        representation: Optional[str] = None,
+        needle_config: Optional[dict] = None
     ):
         """Arguments for similarity calculation.
 
@@ -48,8 +41,8 @@ class SimilarityArguments:
         as well, defaults to None
         :type df_target: pd.DataFrame, optional
         :param data_type: Biochemical data_type to which the data belongs.
-        Options: `protein`, `protein_structure`, `DNA`, `RNA`, or
-        `small_molecule`; defaults to 'protein'
+        Options: `protein`, `protein_structure`, `DNA`, `RNA`,
+        `small_molecule` or `embedding`; defaults to 'protein'
         :type data_type: str, optional
         :param similarity_metric: Similarity function to use.
         Options:
@@ -87,13 +80,15 @@ class SimilarityArguments:
         :param filename: Filename where to save the similarity calculations
         requires `save_alignment` set to `True`, defaults to None
         :type filename: str, optional
-        :param distance: Distance metrics for small molecule comparison.
+        :param distance: Distance metrics for small molecule or comparison.
         Currently, it is restricted to Tanimoto distance will
         be extended in future patches; if interested in a specific
         metric please let us know.
         Options:
-            - `tanimoto`: Calculates the Tanimoto distance
-        Defaults to 'tanimoto'.
+            - `tanimoto`: Calculates the Tanimoto similarity
+            - `cosine`: Calculates the Cosine similarity
+        Defaults to 'tanimoto' if `data_type` is `small_molecule` and
+        to `cosine` if `data_type` is `embedding`.
         :type distance: str, optional
         :param bits: Number of bits for ECFP, defaults to 1024
         :type bits: int, optional
@@ -119,7 +114,7 @@ class SimilarityArguments:
             - `TM`: global structural alignment (slow)
         Defaults to '3di+aa'
         :type representation: str, optional
-        :param config: Dictionary with options for EMBOSS needle module
+        :param needle_config: Dictionary with options for EMBOSS needle module
         Default values:
             - "gapopen": 10,
             - "gapextend": 0.5,
@@ -127,7 +122,7 @@ class SimilarityArguments:
             - "endopen": 10,
             - "endextend": 0.5,
             - "matrix": "EBLOSUM62"
-        :type config: dict, optional
+        :type needle_config: dict, optional
         """
         self.data_type = data_type
         self.similarity_metric = similarity_metric
@@ -142,7 +137,30 @@ class SimilarityArguments:
         self.radius = radius
         self.denominator = denominator
         self.representation = representation
-        self.config = config
+        self.needle_config = needle_config
+
+        if self.data_type == 'small_molecule':
+            self.distance = 'tanimoto'
+            self.bits = 1_022
+            self.radius = radius
+        elif self.data_type == 'protein':
+            self.denominator = 'shortest'
+        elif self.data_type == 'protein_structure':
+            self.denominator = 'shortest'
+            self.representation = '3di+aa'
+        elif (self.data_type in ['DNA', 'RNA', 'protein'] and
+              self.similarity_metric == 'needle'):
+            self.denominator = 'shortest'
+            self.needle_config = {
+                "gapopen": 10,
+                "gapextend": 0.5,
+                "endweight": True,
+                "endopen": 10,
+                "endextend": 0.5,
+                "matrix": "EBLOSUM62"
+            }
+        elif self.data_type == 'embedding':
+            self.distance = 'cosine'
 
 
 class HestiaDatasetGenerator:
@@ -175,7 +193,29 @@ class HestiaDatasetGenerator:
         :type data_path: str
         """
         with gzip.open(data_path, 'r') as fin:
-            self.partitions = json.loads(fin.read().decode('utf-8'))
+            input = json.loads(fin.read().decode('utf-8'))
+
+        if 'partitions' in input:
+            self.partitions = input['partitions']
+        else:
+            self.partitions = input
+
+        if 'metadata' not in input:
+            print('Warning: there is no metadata available.')
+        else:
+            self.metadata = input['metadata']
+            if ('cluster_composition' not in self.metadata and
+               'clusters' not in self.metadata):
+                print('Warning: there is no clusters metadata available.')
+
+            if 'partitioning_algorithm' not in self.metadata:
+                print('Warning: there is no metadata available regarding ' +
+                      'the partitioning algorithm.')
+
+            if 'similarity_metric' not in self.metadata:
+                print('Warning: there is no metadata available regarding ' +
+                      'the similarity metric.')
+
         new_dict = {}
         for key, value in self.partitions.items():
             if key != 'random':
@@ -184,14 +224,26 @@ class HestiaDatasetGenerator:
                 new_dict[key] = value
         self.partitions = new_dict
 
-    def save_precalculated(self, output_path: str):
+    def save_precalculated(self, output_path: str,
+                           include_metada: Optional[bool] = True):
         """Save partition indexes to disk for quickier re-running.
 
         :param output_path: Path where partition indexes should be saved.
         :type output_path: str
         """
+        if include_metada:
+            self.metadata['cluster_composition'] = self.clusters.tolist()
+        else:
+            self.metadata['cluster_composition'] = {
+                cluster.item: n_elements.item for cluster, n_elements in
+                zip(np.unique(self.clusters, return_counts=True))
+            }
+        output = {
+            'partitions': self.partitions,
+            'metadata': self.metadata
+        }
         with gzip.open(output_path, 'w') as fout:
-            fout.write(json.dumps(self.partitions).encode('utf-8'))
+            fout.write(json.dumps(output).encode('utf-8'))
 
     def calculate_similarity(self, similarity_args: SimilarityArguments):
         """Calculate pairwise similarity between all the elements in the dataset.
@@ -214,7 +266,7 @@ class HestiaDatasetGenerator:
             radius=similarity_args.radius,
             denominator=similarity_args.denominator,
             representation=similarity_args.representation,
-            config=similarity_args.config
+            config=similarity_args.needle_config
         )
         print('Similarity successfully calculated!')
 
@@ -271,6 +323,28 @@ class HestiaDatasetGenerator:
         :type n_partitions: int, optional
         :raises ValueError: Partitioning algorithm not supported.
         """
+        self.metadata = {
+            'partition_algorithm': {
+                'algorithm': partition_algorithm,
+                'min_threshold': min_threshold,
+                'threshold_step': threshold_step,
+                'test_size': test_size,
+                'valid_size': valid_size,
+                'random_state': random_state,
+                'n_partitions': n_partitions
+            },
+            'similarity_metric': {
+                'data_type': similarity_args.data_type,
+                'similarity_metric': similarity_args.similarity_metric,
+                'min_threshold': similarity_args.min_threshold,
+                'distance': similarity_args.distance,
+                'bits': similarity_args.bits,
+                'radius': similarity_args.radius,
+                'denominator': similarity_args.denominator,
+                'representation': similarity_args.representation,
+                'needle_config': similarity_args.needle_config
+            }
+        }
         self.partitions = {}
         if self.sim_df is None:
             self.calculate_similarity(similarity_args)
@@ -286,7 +360,7 @@ class HestiaDatasetGenerator:
 
         for th in tqdm(range(min_threshold, 100, threshold_step)):
             if partition_algorithm == 'ccpart':
-                th_parts = ccpart(
+                th_parts, clusters = ccpart(
                     self.data,
                     label_name=label_name, test_size=test_size,
                     threshold=th / 100,
@@ -294,7 +368,7 @@ class HestiaDatasetGenerator:
                 )
             elif partition_algorithm == 'graph_part':
                 try:
-                    th_parts = graph_part(
+                    th_parts, clusters = graph_part(
                         self.data,
                         label_name=label_name,
                         test_size=test_size if n_partitions is None else 0.0,
@@ -304,6 +378,7 @@ class HestiaDatasetGenerator:
                     )
                 except RuntimeError:
                     continue
+            self.clusters = clusters
 
             if n_partitions is None:
                 train_th_parts = random_partition(
