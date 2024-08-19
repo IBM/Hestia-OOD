@@ -58,5 +58,5 @@ def test_simdf2mtx():
         df, data_type='small_molecule', similarity_metric='fingerprint',
         field_name='smiles'
     )
-    mtx = sim_df2mtx(sim_df).toarray().astype(float)
+    mtx = sim_df2mtx(sim_df).toarray()
     np.testing.assert_allclose(mtx, objective)
