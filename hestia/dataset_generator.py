@@ -266,7 +266,7 @@ class HestiaDatasetGenerator:
             radius=similarity_args.radius,
             denominator=similarity_args.denominator,
             representation=similarity_args.representation,
-            config=similarity_args.config
+            config=similarity_args.needle_config
         )
         print('Similarity successfully calculated!')
 
