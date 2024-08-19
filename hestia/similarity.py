@@ -30,7 +30,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     :rtype: spr.bsr_matrix
     """
     all_rows = []
-    dtype = np.float16
+    dtype = np.float32
     size = len(sim_df['query'].unique())
     row_np = np.zeros((1, size), dtype=dtype)
     sim_df.sort_values(by='query', ignore_index=True, inplace=True)
