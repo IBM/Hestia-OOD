@@ -427,14 +427,18 @@ def _embedding_distance(
     if target_embds is None:
         target_embds = query_embds
     mtx = cdist(query_embds, target_embds, metric=distance)
+    max_value = mtx.max()
     data = []
     for idx in tqdm(range(mtx.shape[0])):
         for idx2 in range(mtx.shape[1]):
-            value = mtx[idx, idx2]
+            if 'cosine' in distance:
+                value = 1 - mtx[idx, idx2]
+            else:
+                value = max_value - mtx[idx, idx2]
             if value < threshold:
                 continue
             data.append({'query': idx, 'target': idx2,
-                         'metric': 1 - value})
+                         'metric': value})
     df = pd.DataFrame(data)
     if save_alignment:
         if filename is None:
