@@ -1,10 +1,11 @@
 import gzip
 import json
 from multiprocessing import cpu_count
-from typing import Callable, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+from scipy.stats import wilcoxon
 from sklearn.metrics import auc
 from tqdm import tqdm
 
@@ -502,3 +503,44 @@ class HestiaDatasetGenerator:
         # plt.legend(['SP', 'Random'])
         # plt.ylim(0, 1.1)
         # plt.show()
+
+    @staticmethod
+    def compare_models(
+        model_results: Dict[str, Union[List[float], np.ndarray]],
+        statistical_test: str = 'wilcoxon'
+    ) -> np.ndarray:
+        """Compare the generalisation capabilities of n models against
+        each other, providing p-values for every possible pair of models
+        measuring how likely is model A to be better performing than
+        model B.
+
+        :param model_results: Dictionary with model name as key and a list
+        with the ordered performance values of the model at different
+        thresholds.
+        :type model_results: Dict[str, Union[List[float], np.ndarray]]
+        :param statistical_test: Statistical test to compute the
+        model differences. Currently supported:
+        - `wilcoxon`: Wilcoxon ranked-sum test
+        Defaults to 'wilcoxon'
+        :type statistical_test: str, optional
+        :rtype: np.ndarray
+        """
+        stat_tests = {
+            'wilcoxon': wilcoxon
+        }
+        if statistical_test in stat_tests.keys():
+            test = stat_tests[statistical_test]
+        else:
+            raise NotImplementedError(
+                f'Statistical test: {statistical_test} is not' +
+                ' currently supported. Please use one of the ' +
+                f" following methods: {', '.join(stat_tests.keys())}"
+            )
+
+        matrix = np.ones((len(model_results.keys()), len(model_results.keys())))
+        for idx, (key, value) in enumerate(model_results.items()):
+            for idx2, (key2, value2) in enumerate(model_results.items()):
+                if key == key2:
+                    continue
+                matrix[idx, idx2] = test(value, value2, alternative='greater')[1]
+        return matrix
