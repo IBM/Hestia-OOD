@@ -11,6 +11,8 @@ from tqdm import tqdm
 import scipy.sparse as spr
 from concurrent.futures import ThreadPoolExecutor
 
+from hestia.utils import BULK_SIM_METRICS
+
 
 def sim_df2mtx(sim_df: pd.DataFrame,
                threshold: float = 0.05) -> spr.bsr_matrix:
@@ -195,6 +197,8 @@ def calculate_similarity(
             **kwargs
         )
     elif similarity_metric == 'embedding':
+        if 'to_df' not in kwargs:
+            kwargs['to_df'] = False
         sim_df = _embedding_distance(
             query_embds=df_query, target_embds=df_target,
             distance=distance, threads=threads,
@@ -426,20 +430,47 @@ def _embedding_distance(
 
     if target_embds is None:
         target_embds = query_embds
-    mtx = cdist(query_embds, target_embds, metric=distance)
-    max_value = mtx.max()
-    data = []
-    for idx in tqdm(range(mtx.shape[0])):
-        for idx2 in range(mtx.shape[1]):
-            if 'cosine' in distance:
-                value = 1 - mtx[idx, idx2]
-            else:
-                value = max_value - mtx[idx, idx2]
-            if value < threshold:
-                continue
-            data.append({'query': idx, 'target': idx2,
-                         'metric': value})
-    df = pd.DataFrame(data)
+
+    bulk_sim_metric = BULK_SIM_METRICS[distance]
+    chunk_size = threads * 1_000
+    chunks_target = (len(target_embds) // chunk_size) + 1
+    queries, targets, metrics = [], [], []
+    pbar = tqdm(range(len(query_embds)))
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        for chunk in pbar:
+            jobs = []
+            for chunk_t in range(chunks_target):
+                start_t = chunk_t * chunk_size
+                if chunk_t == chunks_target - 1:
+                    end_t = -1
+                else:
+                    end_t = (chunk_t + 1) * chunk_size
+                if end_t == -1:
+                    chunk_fps = target_embds[start_t:]
+                else:
+                    chunk_fps = target_embds[start_t:end_t]
+
+                query_fp = query_embds[chunk]
+                job = executor.submit(bulk_sim_metric, query_fp, chunk_fps)
+                jobs.append(job)
+
+            for idx, job in enumerate(jobs):
+                if job.exception() is not None:
+                    raise RuntimeError(job.exception())
+                result = job.result()
+                for idx_target, metric in enumerate(result):
+                    if metric < threshold:
+                        continue
+                    queries.append(int(chunk))
+                    targets.append(int((idx * chunk_size) + idx_target))
+                    metrics.append(metric)
+
+    df = pd.DataFrame({'queries': queries, 'targets': targets,
+                       'metrics': metrics})
+    if distance not in ['cosine']:
+        max_value = df.metrics.max()
+        df.metrics = df.metrics.map(lambda x: 1 - (x / max_value))
     if save_alignment:
         if filename is None:
             filename = time.time()
@@ -492,26 +523,42 @@ def _fingerprint_alignment(
     :return: _description_
     :rtype: Union[pd.DataFrame, np.ndarray]
     """
+    from tqdm.contrib.concurrent import thread_map
     try:
         from rdkit import Chem
         from rdkit.Chem import rdFingerprintGenerator
-        from rdkit import DataStructs
-        from tqdm.contrib.concurrent import thread_map
+        from rdkit.DataStructs import (
+            BulkTanimotoSimilarity, BulkDiceSimilarity,
+            BulkSokalSimilarity, BulkRogotGoldbergSimilarity)
+
+        BULK_SIM_METRICS.update({
+            'tanimoto': BulkTanimotoSimilarity,
+            'dice': BulkDiceSimilarity,
+            'sokal': BulkSokalSimilarity,
+            'rogot-goldberg': BulkRogotGoldbergSimilarity
+        })
+
     except ModuleNotFoundError:
         raise ImportError("This function requires RDKit to be installed.")
 
-    mfpgen = rdFingerprintGenerator.GetMorganGenerator(
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(
         radius=radius, fpSize=bits
     )
+    if distance in BULK_SIM_METRICS:
+        bulk_sim_metric = BULK_SIM_METRICS[distance]
+    else:
+        raise NotImplementedError(
+            f'Distance metric: {distance} not implemented. ' +
+            f"Supported metrics: {', '.join(BULK_SIM_METRICS.keys())}"
+        )
 
     def _get_fp(smile: str):
         mol = Chem.MolFromSmiles(smile)
-        fp = mfpgen.GetSparseFingerprint(mol)
+        if distance in ['dice', 'tanimoto']:
+            fp = fpgen.GetFingerprint(mol)
+        else:
+            fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
         return fp
-
-    def _compute_tanimoto(query_fp: list, target_fps: list):
-        scores = DataStructs.BulkTanimotoSimilarity(query_fp, target_fps)
-        return scores
 
     if (field_name not in df_query.columns):
         raise ValueError(f'{field_name} not found in query DataFrame')
@@ -550,7 +597,7 @@ def _fingerprint_alignment(
                     chunk_fps = target_fps[start_t:end_t]
 
                 query_fp = query_fps[chunk]
-                job = executor.submit(_compute_tanimoto, query_fp, chunk_fps)
+                job = executor.submit(bulk_sim_metric, query_fp, chunk_fps)
                 jobs.append(job)
 
             for idx, job in enumerate(jobs):
@@ -565,7 +612,6 @@ def _fingerprint_alignment(
                     metrics.append(metric)
 
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
-
     if save_alignment:
         if filename is None:
             filename = time.time()
