@@ -9,6 +9,7 @@ def bulk_cosine_similarity(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
         out[i] = cosine_similarity(
             u.reshape(1, -1), bulk[i].reshape(1, -1)
         ).item()
+        print(out[i])
     return out
 
 
