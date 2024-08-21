@@ -113,15 +113,11 @@ generator = HestiaDatasetGenerator(df)
 # Define the similarity arguments (for more info see the documentation page https://ibm.github.io/Hestia-OOD/datasetgenerator)
 args = SimilarityArguments(
     data_type='protein', field_name='sequence',
-    similarity_metric='mmseqs2+prefilter', verbose=3,
-    save_alignment=True
+    similarity_metric='mmseqs2+prefilter', verbose=3
 )
 
 # Calculate the similarity
 generator.calculate_similarity(args)
-
-# Load pre-calculated similarities
-generator.load_similarity(args.filename + '.csv.gz')
 
 # Calculate partitions
 generator.calculate_partitions(min_threshold=0.3,
@@ -135,14 +131,23 @@ generator.save_precalculated('precalculated_partitions.gz')
 generator.from_precalculated('precalculated_partitions.gz')
 
 # Training code
+
+for threshold, partition in generator.get_partitions():
+    train = df.iloc[partition['train']]
+    valid = df.iloc[partition['valid']]
+    test = df.iloc[partition['test']]
+
 # ...
 
-# Calculate ABOID
+# Calculate AU-GOOD
+generator.calculate_augood(results, 'test_mcc')
 
-generator.calculate_aboid(results, 'test_mcc')
+# Plot GOOD
+generator.plot_good(results, 'test_mcc')
 
-# Plot ABOID
-generator.plot_aboid(results, 'test_mcc')
+# Compare two models
+results = {'model A': [values_A], 'model B': [values_B]}
+generator.compare_models(results, statistical_test='wilcoxon')
 ```
 
 ### 2. Similarity calculation
