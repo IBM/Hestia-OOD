@@ -93,10 +93,8 @@ def calculate_similarity(
         - `DNA` or `RNA`: `mmseqs` (local alignment),
           `mmseqs+prefilter` (fast local alignment), or `needle`
           (global alignment).
-        - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
-           scaffolds: either identical or not) or
-          `fingerprint` (Tanimoto distance between ECFP (extended connectivity
-           fingerprints))
+        - `small molecule`: `ecfp` (ECFP extended connectivity
+        fingerprints), `map4` (MAP4 chiral fingerprint), or `maccs`
         - It can also be a custom made function. It has to fulfill three requirements
           1) be symmetrical, 2) be normalised in the interval [0, 1], 3) f(x_i, x_i) = 1.
           It should support all values within the SimilarityArguments object. If
@@ -295,7 +293,7 @@ def calculate_similarity(
                     save_alignment=save_alignment,
                     filename=filename
                 )
-            elif similarity_metric == 'fingerprint':
+            elif similarity_metric in ['ecfp', 'map4', 'maccs']:
                 sim_df = _fingerprint_alignment(
                     df_query=df_query,
                     df_target=df_target,
@@ -306,6 +304,7 @@ def calculate_similarity(
                     verbose=verbose,
                     bits=bits,
                     radius=radius,
+                    fingerprint=similarity_metric,
                     save_alignment=save_alignment,
                     filename=filename
                 )
@@ -468,7 +467,7 @@ def _embedding_distance(
 
     df = pd.DataFrame({'queries': queries, 'targets': targets,
                        'metrics': metrics})
-    if distance not in ['cosine']:
+    if distance not in ['cosine-np']:
         max_value = df.metrics.max()
         df.metrics = df.metrics.map(lambda x: 1 - (x / max_value))
     if save_alignment:
@@ -489,64 +488,67 @@ def _fingerprint_alignment(
     bits: int = 1024,
     radius: int = 2,
     save_alignment: bool = False,
+    fingerprint: str = 'ecfp', 
     filename: str = None,
     **kwargs
 ) -> pd.DataFrame:
-    """_summary_
 
-    :param df_query: _description_
-    :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param threshold: _description_, defaults to 0.0
-    :type threshold: float, optional
-    :param field_name: _description_, defaults to 'smiles'
-    :type field_name: str, optional
-    :param alignment: _description_, defaults to 'tanimoto'
-    :type alignment: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param bits: _description_, defaults to 1024
-    :type bits: int, optional
-    :param radius: _description_, defaults to 2
-    :type radius: int, optional
-    :param save_alignment: _description_, defaults to False
-    :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
-    :type filename: str, optional
-    :raises ImportError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: Union[pd.DataFrame, np.ndarray]
-    """
     from tqdm.contrib.concurrent import thread_map
     try:
         from rdkit import Chem
-        from rdkit.Chem import rdFingerprintGenerator
+        from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
         from rdkit.DataStructs import (
             BulkTanimotoSimilarity, BulkDiceSimilarity,
             BulkSokalSimilarity, BulkRogotGoldbergSimilarity,
             BulkCosineSimilarity
         )
-
-        BULK_SIM_METRICS.update({
-            'tanimoto': BulkTanimotoSimilarity,
-            'dice': BulkDiceSimilarity,
-            'sokal': BulkSokalSimilarity,
-            'rogot-goldberg': BulkRogotGoldbergSimilarity,
-            'cosine': BulkCosineSimilarity
-        })
-
     except ModuleNotFoundError:
         raise ImportError("This function requires RDKit to be installed.")
 
-    fpgen = rdFingerprintGenerator.GetMorganGenerator(
-        radius=radius, fpSize=bits
-    )
+    BULK_SIM_METRICS.update({
+        'tanimoto': BulkTanimotoSimilarity,
+        'dice': BulkDiceSimilarity,
+        'sokal': BulkSokalSimilarity,
+        'rogot-goldberg': BulkRogotGoldbergSimilarity,
+        'cosine': BulkCosineSimilarity
+    })
+
+    if fingerprint == 'ecfp':
+        fpgen = rdFingerprintGenerator.GetMorganGenerator(
+            radius=radius, fpSize=bits
+        )
+
+        def _get_fp(smile: str):
+            mol = Chem.MolFromSmiles(smile)
+            if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
+                            'cosine']:
+                fp = fpgen.GetFingerprint(mol)
+            else:
+                fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
+            return fp
+
+    elif fingerprint == 'maccs':
+
+        def _get_fp(smile: str):
+            mol = Chem.MolFromSmiles(smile)
+            if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
+                            'cosine']:
+                fp = rdMolDescriptors.GetMACCSKeysFingerprint(mol)
+            else:
+                fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
+            return fp
+    elif fingerprint == 'map4':
+        try:
+            from mapchiral.mapchiral import encode
+        except ModuleNotFoundError:
+            raise ImportError('This fingerprint requires mapchiral to be installed.')
+
+        def _get_fp(smile: str):
+            mol = Chem.MolFromSmiles(smile)
+            fp = encode(mol, max_radius=radius,
+                        n_permutations=bits, mapping=False)
+            return fp.astype(np.int8)
+
     if distance in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[distance]
     else:
@@ -554,14 +556,8 @@ def _fingerprint_alignment(
             f'Distance metric: {distance} not implemented. ' +
             f"Supported metrics: {', '.join(BULK_SIM_METRICS.keys())}"
         )
-
-    def _get_fp(smile: str):
-        mol = Chem.MolFromSmiles(smile)
-        if distance in ['dice', 'tanimoto']:
-            fp = fpgen.GetFingerprint(mol)
-        else:
-            fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
-        return fp
+    if distance == 'cosine':
+        distance = 'cosine-np'
 
     if (field_name not in df_query.columns):
         raise ValueError(f'{field_name} not found in query DataFrame')
@@ -579,6 +575,9 @@ def _fingerprint_alignment(
     else:
         target_fps = thread_map(_get_fp, df_query[field_name],
                                 max_workers=threads)
+    if fingerprint == 'map4':
+        query_fps = np.stack(query_fps)
+        target_fps = np.stack(target_fps)
 
     chunk_size = threads * 1_000
     chunks_target = (len(df_target) // chunk_size) + 1
@@ -600,6 +599,7 @@ def _fingerprint_alignment(
                     chunk_fps = target_fps[start_t:end_t]
 
                 query_fp = query_fps[chunk]
+
                 job = executor.submit(bulk_sim_metric, query_fp, chunk_fps)
                 jobs.append(job)
 

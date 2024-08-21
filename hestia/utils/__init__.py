@@ -9,7 +9,7 @@ from hestia.utils.bulk_similarity_metrics import (
     bulk_cosine_similarity, bulk_binary_manhattan_similarity,
     bulk_binary_euclidean_similarity, bulk_euclidean, bulk_manhattan)
 
-BULK_SIM_METRICS = {'cosine': bulk_cosine_similarity,
+BULK_SIM_METRICS = {'cosine-np': bulk_cosine_similarity,
                     'binary_manhattan': bulk_binary_manhattan_similarity,
                     'binary_euclidean': bulk_binary_euclidean_similarity,
                     'manhattan': bulk_manhattan, 
