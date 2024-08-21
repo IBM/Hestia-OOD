@@ -529,13 +529,16 @@ def _fingerprint_alignment(
         from rdkit.Chem import rdFingerprintGenerator
         from rdkit.DataStructs import (
             BulkTanimotoSimilarity, BulkDiceSimilarity,
-            BulkSokalSimilarity, BulkRogotGoldbergSimilarity)
+            BulkSokalSimilarity, BulkRogotGoldbergSimilarity,
+            BulkCosineSimilarity
+        )
 
         BULK_SIM_METRICS.update({
             'tanimoto': BulkTanimotoSimilarity,
             'dice': BulkDiceSimilarity,
             'sokal': BulkSokalSimilarity,
-            'rogot-goldberg': BulkRogotGoldbergSimilarity
+            'rogot-goldberg': BulkRogotGoldbergSimilarity,
+            'cosine': BulkCosineSimilarity
         })
 
     except ModuleNotFoundError:
