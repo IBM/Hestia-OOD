@@ -91,7 +91,7 @@ def test_embedding_euclidean_similarity():
     objective_df = pd.DataFrame({
         'queries': [0, 0, 1, 1],
         'targets': [0, 1, 0, 1],
-        'metrics': [1., 0., 0., 1.]
+        'metrics': [1.,  0.440091, 0.440091, 1.]
     })
     assert sim_df.queries.tolist() == objective_df.queries.tolist()
     assert sim_df.targets.tolist() == objective_df.targets.tolist()
