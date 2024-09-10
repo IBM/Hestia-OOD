@@ -468,8 +468,7 @@ def _embedding_distance(
     df = pd.DataFrame({'queries': queries, 'targets': targets,
                        'metrics': metrics})
     if distance not in ['cosine-np']:
-        max_value = df.metrics.max()
-        df.metrics = df.metrics.map(lambda x: 1 - (x / max_value))
+        df.metrics = df.metrics.map(lambda x: 1 / (1 + x))
     if save_alignment:
         if filename is None:
             filename = time.time()
