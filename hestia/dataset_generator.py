@@ -209,7 +209,7 @@ class HestiaDatasetGenerator:
                'clusters' not in self.metadata):
                 print('Warning: there is no clusters metadata available.')
 
-            if 'partitioning_algorithm' not in self.metadata:
+            if 'partition_algorithm' not in self.metadata:
                 print('Warning: there is no metadata available regarding ' +
                       'the partitioning algorithm.')
 
