@@ -232,12 +232,14 @@ class HestiaDatasetGenerator:
         :param output_path: Path where partition indexes should be saved.
         :type output_path: str
         """
+        clusters = {th: c['clusters'] for th, c in self.partitions.items()
+                    if th != 'random'}
         if include_metada:
-            self.metadata['cluster_composition'] = self.clusters.tolist()
+            self.metadata['cluster_composition'] = clusters
         else:
             self.metadata['cluster_composition'] = {
                 cluster.item: n_elements.item for cluster, n_elements in
-                zip(np.unique(self.clusters, return_counts=True))
+                zip(np.unique(clusters, return_counts=True))
             }
         output = {
             'partitions': self.partitions,
@@ -380,7 +382,6 @@ class HestiaDatasetGenerator:
                     )
                 except RuntimeError:
                     continue
-            self.clusters = clusters
 
             if n_partitions is None:
                 train_th_parts = random_partition(
@@ -390,7 +391,8 @@ class HestiaDatasetGenerator:
                 self.partitions[th / 100] = {
                     'train': train_th_parts[0],
                     'valid': train_th_parts[1],
-                    'test': th_parts[1]
+                    'test': th_parts[1],
+                    'clusters': clusters
                 }
             else:
                 th_parts = [[i[0] for i in part] for part in th_parts]
