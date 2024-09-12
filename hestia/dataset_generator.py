@@ -234,6 +234,7 @@ class HestiaDatasetGenerator:
         """
         clusters = {th: c['clusters'] for th, c in self.partitions.items()
                     if th != 'random'}
+        del self.partitions['clusters']
         if include_metada:
             self.metadata['cluster_composition'] = clusters
         else:
