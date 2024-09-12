@@ -311,6 +311,8 @@ def calculate_similarity(
             else:
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}'
+                raise NotImplementedError(mssg)
+
         else:
             raise NotImplementedError(mssg2)
     return sim_df
