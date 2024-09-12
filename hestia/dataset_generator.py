@@ -361,12 +361,13 @@ class HestiaDatasetGenerator:
 
         for th in tqdm(range(min_threshold, 100, threshold_step)):
             if partition_algorithm == 'ccpart':
-                th_parts, clusters = ccpart(
+                train, test, clusters = ccpart(
                     self.data,
                     label_name=label_name, test_size=test_size,
                     threshold=th / 100,
                     sim_df=self.sim_df, verbose=2
                 )
+                th_parts = (train, test)
             elif partition_algorithm == 'graph_part':
                 try:
                     th_parts, clusters = graph_part(
