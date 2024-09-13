@@ -209,7 +209,7 @@ class HestiaDatasetGenerator:
                'clusters' not in self.metadata):
                 print('Warning: there is no clusters metadata available.')
 
-            if 'partitioning_algorithm' not in self.metadata:
+            if 'partition_algorithm' not in self.metadata:
                 print('Warning: there is no metadata available regarding ' +
                       'the partitioning algorithm.')
 
@@ -232,12 +232,18 @@ class HestiaDatasetGenerator:
         :param output_path: Path where partition indexes should be saved.
         :type output_path: str
         """
+        clusters = {th: c['clusters'] for th, c in self.partitions.items()
+                    if th != 'random'}
+        for th, c in self.partitions.items():
+            if th != 'random':
+                del c['clusters']
+
         if include_metada:
-            self.metadata['cluster_composition'] = self.clusters.tolist()
+            self.metadata['cluster_composition'] = clusters
         else:
             self.metadata['cluster_composition'] = {
                 cluster.item: n_elements.item for cluster, n_elements in
-                zip(np.unique(self.clusters, return_counts=True))
+                zip(np.unique(clusters, return_counts=True))
             }
         output = {
             'partitions': self.partitions,
@@ -361,12 +367,13 @@ class HestiaDatasetGenerator:
 
         for th in tqdm(range(min_threshold, 100, threshold_step)):
             if partition_algorithm == 'ccpart':
-                th_parts, clusters = ccpart(
+                train, test, clusters = ccpart(
                     self.data,
                     label_name=label_name, test_size=test_size,
                     threshold=th / 100,
                     sim_df=self.sim_df, verbose=2
                 )
+                th_parts = (train, test)
             elif partition_algorithm == 'graph_part':
                 try:
                     th_parts, clusters = graph_part(
@@ -379,7 +386,6 @@ class HestiaDatasetGenerator:
                     )
                 except RuntimeError:
                     continue
-            self.clusters = clusters
 
             if n_partitions is None:
                 train_th_parts = random_partition(
@@ -389,7 +395,8 @@ class HestiaDatasetGenerator:
                 self.partitions[th / 100] = {
                     'train': train_th_parts[0],
                     'valid': train_th_parts[1],
-                    'test': th_parts[1]
+                    'test': th_parts[1],
+                    'clusters': clusters
                 }
             else:
                 th_parts = [[i[0] for i in part] for part in th_parts]

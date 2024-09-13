@@ -61,7 +61,7 @@ def ccpart(
     radius: int = 2,
     config: dict = None,
     sim_df: Optional[pd.DataFrame] = None
-) -> Union[Tuple[list, list], Tuple[list, list, list]]:
+) -> Union[Tuple[list, list, list], Tuple[list, list, list, list]]:
     """Use CCPart algorithm
     to generate training and evaluation subsets
     that maximise the dissimilarity between their
