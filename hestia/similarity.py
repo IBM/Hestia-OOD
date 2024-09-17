@@ -550,6 +550,10 @@ def _fingerprint_alignment(
                         n_permutations=bits, mapping=False)
             return fp.astype(np.int8)
 
+        if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
+                                'cosine']:
+            distance += '-np'
+
     if distance in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[distance]
     else:
@@ -557,8 +561,6 @@ def _fingerprint_alignment(
             f'Distance metric: {distance} not implemented. ' +
             f"Supported metrics: {', '.join(BULK_SIM_METRICS.keys())}"
         )
-    if distance == 'cosine':
-        distance = 'cosine-np'
 
     if (field_name not in df_query.columns):
         raise ValueError(f'{field_name} not found in query DataFrame')
