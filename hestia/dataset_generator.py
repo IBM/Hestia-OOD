@@ -141,7 +141,6 @@ class SimilarityArguments:
         self.needle_config = needle_config
 
         if self.data_type == 'small_molecule':
-            self.distance = 'tanimoto'
             self.bits = 1_022
             self.radius = radius
         elif self.data_type == 'protein':

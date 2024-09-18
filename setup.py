@@ -48,6 +48,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/IBM/Hestia-OOD',
-    version='0.0.22',
+    version='0.0.23',
     zip_safe=False,
 )
