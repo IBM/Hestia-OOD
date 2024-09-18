@@ -109,15 +109,16 @@ def test_mapchiral():
     sim_df = calculate_similarity(
         df, data_type='small_molecule',
         similarity_metric='map4',
-        distance='cosine-np',
+        distance='jaccard',
         field_name='smiles',
         threshold=0.
     )
     objective_df = pd.DataFrame({
         'query': [0, 0, 0, 1, 1, 1, 2, 2, 2],
         'target': [0, 1, 2, 0, 1, 2, 0, 1, 2],
-        'metric': [1., 0.593769, 0.033267, 0.593769, 1.,
-                   0.067812, 0.033267, 0.067812, 1.]
+        'metric': [1.0, 0.5634765625, 0.0390625,
+                   0.5634765625, 1.0, 0.0302734375,
+                   0.0390625, 0.0302734375, 1.0]
     })
     assert sim_df['query'].tolist() == objective_df['query'].tolist()
     assert sim_df['target'].tolist() == objective_df['target'].tolist()
