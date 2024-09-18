@@ -3,13 +3,23 @@ from sklearn.metrics.pairwise import (cosine_similarity, manhattan_distances,
                                       euclidean_distances)
 
 
+def bulk_np_jaccard(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
+    out = np.zeros(bulk.shape[0])
+    bits = bulk.shape[1]
+    for i in range(bulk.shape[0]):
+        out[i] = (u == bulk[i]).sum() / bits
+    return out
+
+
 def bulk_np_tanimoto(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
     a = u.sum()
     out = np.zeros(bulk.shape[0])
     for i in range(bulk.shape[0]):
         b = bulk[i].sum()
-        c = ((u + bulk[i]) > 1).sum()
+        c = np.dot(u, bulk[i])
         denominator = (a + b) - c
+        if denominator == 0:
+            print(a, b, c)
         if denominator == 0:
             out[i] = 1
         else:
@@ -22,7 +32,7 @@ def bulk_np_dice(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
     out = np.zeros(bulk.shape[0])
     for i in range(bulk.shape[0]):
         b = bulk[i].sum()
-        c = ((u + bulk[i]) > 1).sum()
+        c = np.dot(u, bulk[i])
         denominator = a + b
         if denominator == 0:
             out[i] = 1
@@ -36,7 +46,7 @@ def bulk_np_sokal(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
     out = np.zeros(bulk.shape[0])
     for i in range(bulk.shape[0]):
         b = bulk[i].sum()
-        c = ((u + bulk[i]) > 1).sum()
+        c = np.dot(u, bulk[i])
         denominator = 2 * (a + b) - 3 * c
         if denominator == 0:
             out[i] = 1

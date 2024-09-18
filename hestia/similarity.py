@@ -547,12 +547,12 @@ def _fingerprint_alignment(
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile)
             fp = encode(mol, max_radius=radius,
-                        n_permutations=bits, mapping=False)
-            return fp.astype(np.int8)
+                            n_permutations=bits, mapping=False)
+            return fp
 
-        if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
-                                'cosine']:
-            distance += '-np'
+        if distance != 'jaccard':
+            print(distance)
+            raise ValueError('MAP4 can only be used with `jaccard`.')
 
     if distance in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[distance]
@@ -618,6 +618,7 @@ def _fingerprint_alignment(
                     metrics.append(metric)
 
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
+    print(df)
     if save_alignment:
         if filename is None:
             filename = time.time()
