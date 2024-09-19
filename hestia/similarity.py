@@ -14,6 +14,9 @@ from concurrent.futures import ThreadPoolExecutor
 from hestia.utils import BULK_SIM_METRICS
 
 
+SUPPORTED_FPS = ['ecfp', 'map4', 'maccs']
+
+
 def sim_df2mtx(sim_df: pd.DataFrame,
                threshold: float = 0.05) -> spr.bsr_matrix:
     """Generates a similarity matrix from
@@ -282,7 +285,11 @@ def calculate_similarity(
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}'
                 raise NotImplementedError(mssg)
-        elif data_type == 'small_molecule' or data_type.lower() == 'smiles':
+        elif (data_type.lower() == 'small_molecule' or
+              data_type.lower() == 'smiles'):
+            if similarity_metric == 'fingerprint':
+                print('Warning: Using `ecfp` fingerprint by default')
+                similarity_metric = 'ecfp'
             if similarity_metric == 'scaffold':
                 sim_df = _scaffold_alignment(
                     df_query=df_query,
@@ -293,7 +300,7 @@ def calculate_similarity(
                     save_alignment=save_alignment,
                     filename=filename
                 )
-            elif similarity_metric in ['ecfp', 'map4', 'maccs']:
+            elif similarity_metric.lower() in SUPPORTED_FPS:
                 sim_df = _fingerprint_alignment(
                     df_query=df_query,
                     df_target=df_target,
@@ -310,7 +317,9 @@ def calculate_similarity(
                 )
             else:
                 mssg = f'Alignment method: {similarity_metric} '
-                mssg += f'not implemented for data_type: {data_type}'
+                mssg += f'not implemented for data_type: {data_type}.'
+                mssg += "Please use one of the following "
+                mssg += f"{', '.join([SUPPORTED_FPS])}"
                 raise NotImplementedError(mssg)
 
         else:
@@ -527,7 +536,6 @@ def _fingerprint_alignment(
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
-
     elif fingerprint == 'maccs':
 
         def _get_fp(smile: str):
@@ -547,7 +555,7 @@ def _fingerprint_alignment(
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile)
             fp = encode(mol, max_radius=radius,
-                            n_permutations=bits, mapping=False)
+                        n_permutations=bits, mapping=False)
             return fp
 
         if distance != 'jaccard':
@@ -575,9 +583,11 @@ def _fingerprint_alignment(
     if df_target is None:
         df_target = df_query
         target_fps = query_fps
+        print('Here')
     else:
-        target_fps = thread_map(_get_fp, df_query[field_name],
+        target_fps = thread_map(_get_fp, df_target[field_name],
                                 max_workers=threads)
+        
     if fingerprint == 'map4':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
