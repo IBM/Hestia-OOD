@@ -506,7 +506,7 @@ def graph_part(
             representation=representation, config=config
         )
 
-    mtx = sim_df2mtx(sim_df, threshold)
+    mtx = sim_df2mtx(sim_df, threshold, len(df))
 
     if label_name is not None:
         labels = df[label_name]

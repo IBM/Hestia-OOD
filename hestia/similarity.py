@@ -18,31 +18,39 @@ SUPPORTED_FPS = ['ecfp', 'map4', 'maccs']
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
-               threshold: float = 0.05) -> spr.bsr_matrix:
-    """Generates a similarity matrix from
-    a DataFrame with the results from similarity
-    calculations in the form of `query`, `target`,
-    and `metric`.
+               threshold: float = 0.05,
+               size_query: Optional[int] = None,
+               size_target: Optional[int] = None) -> spr.bsr_matrix:
+    """_summary_
 
-    :param sim_df: DataFrame with similarity calculations
-    with the columns `query`, `target`, and `metric`.
+    :param sim_df: _description_
     :type sim_df: pd.DataFrame
-    :param threshold: Similarity threshold below which
-    elements are considered dissimilar, defaults to 0.05
+    :param threshold: _description_, defaults to 0.05
     :type threshold: float, optional
-    :return: Sparse similarity matrix with shape nxn where
-    n are the unique elements in the `query` column.
+    :param size_query: _description_, defaults to None
+    :type size_query: Optional[int], optional
+    :param size_target: _description_, defaults to None
+    :type size_target: Optional[int], optional
+    :return: _description_
     :rtype: spr.bsr_matrix
     """
     all_rows = []
-    dtype = np.float32
-    size = len(sim_df['query'].unique())
-    row_np = np.zeros((1, size), dtype=dtype)
-    sim_df.sort_values(by='query', ignore_index=True, inplace=True)
-    query_grouped = sim_df.groupby(by='query')
+    if size_query is None:
+        size_query = len(sim_df['query'].unique())
 
-    for _, row in query_grouped:
-        inds, values = row['target'], row['metric']
+    if size_target is None:
+        size_target = size_query
+
+    dtype = np.float32
+    row_np = np.zeros((1, size_target), dtype=dtype)
+    sim_df.sort_values(by='query', ignore_index=True, inplace=True)
+    queries = sim_df['query'].to_numpy()
+    targets = sim_df['target'].to_numpy()
+    metrics = sim_df['target'].to_numpy()
+
+    for idx in range(size_query):
+        query_idxs = queries == idx
+        inds, values = targets[query_idxs], metrics[query_idxs]
         slicing = values > threshold
         inds, values = inds[slicing], values[slicing]
         new_row_np = row_np.copy()
@@ -587,7 +595,7 @@ def _fingerprint_alignment(
     else:
         target_fps = thread_map(_get_fp, df_target[field_name],
                                 max_workers=threads)
-        
+
     if fingerprint == 'map4':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
@@ -628,7 +636,6 @@ def _fingerprint_alignment(
                     metrics.append(metric)
 
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
-    print(df)
     if save_alignment:
         if filename is None:
             filename = time.time()
