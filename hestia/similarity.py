@@ -46,7 +46,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     sim_df.sort_values(by='query', ignore_index=True, inplace=True)
     queries = sim_df['query'].to_numpy()
     targets = sim_df['target'].to_numpy()
-    metrics = sim_df['target'].to_numpy()
+    metrics = sim_df['metric'].to_numpy()
 
     for idx in range(size_query):
         query_idxs = queries == idx
@@ -591,7 +591,6 @@ def _fingerprint_alignment(
     if df_target is None:
         df_target = df_query
         target_fps = query_fps
-        print('Here')
     else:
         target_fps = thread_map(_get_fp, df_target[field_name],
                                 max_workers=threads)
