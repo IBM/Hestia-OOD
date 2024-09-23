@@ -766,17 +766,6 @@ def _foldseek_alignment(
                enumerate(df_query[field_name].unique())}
     tgt2idx = {os.path.basename(tgt).split('.pdb')[0]: idx for idx, tgt in
                enumerate(df_target[field_name].unique())}
-    to_add = set()
-    for i in df_query.index:
-        if i not in qry2idx.values():
-            to_add.add(i)
-    for i in df_target.index:
-        if i not in tgt2idx.values():
-            to_add.add(i)
-
-    new_df = pd.DataFrame([{'query': i, 'target': i, 'metric': 0.0}
-                          for i in to_add])
-    df = pd.concat([df, new_df])
 
     if save_alignment:
         if filename is None:
@@ -786,7 +775,7 @@ def _foldseek_alignment(
     df['metric'] = 1 - df['prob']
     df['query'] = df['query'].map(lambda x: qry2idx[x.split('.pdb')[0]])
     df['query'] = df['query'].astype(int)
-    df['target'] = df['target'].map(lambda x: qry2idx[x.split('.pdb')[0]])
+    df['target'] = df['target'].map(lambda x: tgt2idx[x.split('.pdb')[0]])
     df['target'] = df['target'].astype(int)
 
     shutil.rmtree(tmp_dir)
