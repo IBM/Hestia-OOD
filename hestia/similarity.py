@@ -215,7 +215,7 @@ def calculate_similarity(
             to_df=kwargs['to_df']
         )
     else:
-        if data_type == 'protein':
+        if 'protein' in data_type:
             if 'mmseqs' in similarity_metric:
                 sim_df = _mmseqs2_alignment(
                     df_query=df_query,
