@@ -259,7 +259,7 @@ class HestiaDatasetGenerator:
         """
         print('Calculating similarity...')
         self.sim_df = calculate_similarity(
-            self.data, self.data, data_type=similarity_args.data_type,
+            self.data, data_type=similarity_args.data_type,
             similarity_metric=similarity_args.similarity_metric,
             field_name=similarity_args.field_name,
             threshold=similarity_args.min_threshold,
