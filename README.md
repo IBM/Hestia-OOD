@@ -61,42 +61,58 @@ pip install rdkit
 
 #### 3.2. Sequence alignment
 
-For using MMSeqs as alignment algorithm is necessary install it in the environment:
 
-```bash 
-conda install -c bioconda mmseqs2
-```
 
-For using Needleman-Wunch:
 
-```bash
-conda install -c bioconda emboss
-```
 
 If installation not in conda environment, please check installation instructions for your particular device:
 
-- Linux:
+
+  - MMSeqs2 [https://github.com/steineggerlab/mmseqs2](https://github.com/steineggerlab/mmseqs2)
   ```bash
-  wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz
-  tar xvfz mmseqs-linux-avx2.tar.gz
-  export PATH=$(pwd)/mmseqs/bin/:$PATH
+  # static build with AVX2 (fastest) (check using: cat /proc/cpuinfo | grep avx2)
+  wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz; tar xvfz mmseqs-linux-avx2.tar.gz; export PATH=$(pwd)/mmseqs/bin/:$PATH
+
+  # static build with SSE4.1  (check using: cat /proc/cpuinfo | grep sse4)
+  wget https://mmseqs.com/latest/mmseqs-linux-sse41.tar.gz; tar xvfz mmseqs-linux-sse41.tar.gz; export PATH=$(pwd)/mmseqs/bin/:$PATH
+
+  # static build with SSE2 (slowest, for very old systems)  (check using: cat /proc/cpuinfo | grep sse2)
+  wget https://mmseqs.com/latest/mmseqs-linux-sse2.tar.gz; tar xvfz mmseqs-linux-sse2.tar.gz; export PATH=$(pwd)/mmseqs/bin/:$PATH
+
+  # MacOS
+  brew install mmseqs2  
   ```
+
+  To use Foldseek [https://github.com/steineggerlab/foldseek](https://github.com/steineggerlab/foldseek):
+
+  ```bash
+  # Linux AVX2 build (check using: cat /proc/cpuinfo | grep avx2)
+  wget https://mmseqs.com/foldseek/foldseek-linux-avx2.tar.gz; tar xvzf foldseek-linux-avx2.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
+
+  # Linux SSE2 build (check using: cat /proc/cpuinfo | grep sse2)
+  wget https://mmseqs.com/foldseek/foldseek-linux-sse2.tar.gz; tar xvzf foldseek-linux-sse2.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
+
+  # Linux ARM64 build
+  wget https://mmseqs.com/foldseek/foldseek-linux-arm64.tar.gz; tar xvzf foldseek-linux-arm64.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
+
+  # MacOS
+  wget https://mmseqs.com/foldseek/foldseek-osx-universal.tar.gz; tar xvzf foldseek-osx-universal.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
+  ```
+
+
+  To use Needleman-Wunch, either:
+  ```bash
+  conda install -c bioconda emboss
+  ```
+  or
 
   ```bash
   sudo apt install emboss
   ```
 
-  ```bash
-  sudo apt install emboss
-  ```
 
 - Windows: Download binaries from [EMBOSS](https://emboss.sourceforge.net/download/) and [MMSeqs2-latest](https://mmseqs.com/latest/mmseqs-win64.zip)
 
-- Mac:
-  ```bash
-  sudo port install emboss
-  brew install mmseqs2
-  ```
 
 ## Documentation <a name="documentation"></a>
 
