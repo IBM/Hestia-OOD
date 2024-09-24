@@ -12,7 +12,6 @@
 
 - **Documentation:**  <a href="https://ibm.github.io/Hestia-OOD/" target="_blank">https://ibm.github.io/Hestia-OOD</a>
 - **Source Code:** <a href="https://github.com/IBM/Hestia-OOD" target="_blank">https://github.com/IBM/Hestia-OOD</a>
-- **Webserver:** <a href="http://peptide.ucd.ie/Hestia" target="_blank">http://peptide.ucd.ie/Hestia</a>
 
 ## Contents
 
