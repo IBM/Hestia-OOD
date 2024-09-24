@@ -60,10 +60,6 @@ pip install rdkit
 
 #### 3.2. Sequence alignment
 
-
-
-
-
 If installation not in conda environment, please check installation instructions for your particular device:
 
 
@@ -82,7 +78,24 @@ If installation not in conda environment, please check installation instructions
   brew install mmseqs2  
   ```
 
-  To use Foldseek [https://github.com/steineggerlab/foldseek](https://github.com/steineggerlab/foldseek):
+  To use Needleman-Wunch, either:
+
+  ```bash
+  conda install -c bioconda emboss
+  ```
+  or
+
+  ```bash
+  sudo apt install emboss
+  ```
+
+
+- Windows: Download binaries from [EMBOSS](https://emboss.sourceforge.net/download/) and [MMSeqs2-latest](https://mmseqs.com/latest/mmseqs-win64.zip)
+
+
+#### 3.3. Structure alignment 
+
+  - To use Foldseek [https://github.com/steineggerlab/foldseek](https://github.com/steineggerlab/foldseek):
 
   ```bash
   # Linux AVX2 build (check using: cat /proc/cpuinfo | grep avx2)
@@ -97,20 +110,6 @@ If installation not in conda environment, please check installation instructions
   # MacOS
   wget https://mmseqs.com/foldseek/foldseek-osx-universal.tar.gz; tar xvzf foldseek-osx-universal.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
   ```
-
-
-  To use Needleman-Wunch, either:
-  ```bash
-  conda install -c bioconda emboss
-  ```
-  or
-
-  ```bash
-  sudo apt install emboss
-  ```
-
-
-- Windows: Download binaries from [EMBOSS](https://emboss.sourceforge.net/download/) and [MMSeqs2-latest](https://mmseqs.com/latest/mmseqs-win64.zip)
 
 
 ## Documentation <a name="documentation"></a>
