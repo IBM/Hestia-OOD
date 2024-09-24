@@ -144,9 +144,9 @@ class SimilarityArguments:
             self.bits = 1_022
             self.radius = radius
         elif self.data_type == 'protein':
-            self.denominator = 'shortest'
+            self.denominator = 'n_aligned'
         elif self.data_type == 'protein_structure':
-            self.denominator = 'shortest'
+            self.denominator = 'n_aligned'
             self.representation = '3di+aa'
         elif (self.data_type in ['DNA', 'RNA', 'protein'] and
               self.similarity_metric == 'needle'):
