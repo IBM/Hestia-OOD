@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from hestia.utils import BULK_SIM_METRICS
 
 
-SUPPORTED_FPS = ['ecfp', 'map4', 'maccs']
+SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
@@ -293,8 +293,9 @@ def calculate_similarity(
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}'
                 raise NotImplementedError(mssg)
-        elif (data_type.lower() == 'small_molecule' or
-              data_type.lower() == 'smiles'):
+        elif (data_type.lower() == 'smiles' or
+              ('molecule' in data_type.lower() and
+               'small' in data_type.lower())):
             if similarity_metric == 'fingerprint':
                 print('Warning: Using `ecfp` fingerprint by default')
                 similarity_metric = 'ecfp'
@@ -327,7 +328,7 @@ def calculate_similarity(
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}.'
                 mssg += "Please use one of the following "
-                mssg += f"{', '.join([SUPPORTED_FPS])}"
+                mssg += f"{', '.join(SUPPORTED_FPS)}"
                 raise NotImplementedError(mssg)
 
         else:
@@ -554,7 +555,7 @@ def _fingerprint_alignment(
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
-    elif fingerprint == 'map4':
+    elif fingerprint == 'mapc':
         try:
             from mapchiral.mapchiral import encode
         except ModuleNotFoundError:
@@ -568,7 +569,7 @@ def _fingerprint_alignment(
 
         if distance != 'jaccard':
             print(distance)
-            raise ValueError('MAP4 can only be used with `jaccard`.')
+            raise ValueError('MAPc can only be used with `jaccard`.')
 
     if distance in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[distance]
@@ -595,7 +596,7 @@ def _fingerprint_alignment(
         target_fps = thread_map(_get_fp, df_target[field_name],
                                 max_workers=threads)
 
-    if fingerprint == 'map4':
+    if fingerprint == 'mapc':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
 
