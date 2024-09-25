@@ -562,13 +562,12 @@ def _fingerprint_alignment(
             raise ImportError('This fingerprint requires mapchiral to be installed.')
 
         def _get_fp(smile: str):
-            mol = Chem.MolFromSmiles(smile)
+            mol = Chem.MolFromSmiles(smile, sanitize=True)
             fp = encode(mol, max_radius=radius,
                         n_permutations=bits, mapping=False)
             return fp
 
         if distance != 'jaccard':
-            print(distance)
             raise ValueError('MAPc can only be used with `jaccard`.')
 
     if distance in BULK_SIM_METRICS:
