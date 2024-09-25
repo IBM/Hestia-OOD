@@ -183,8 +183,24 @@ class HestiaDatasetGenerator:
     def get_partition(self, partition: Union[str, float]) -> dict:
         return self.partitions[partition]
 
-    def get_partitions(self) -> dict:
-        return self.partitions.items()
+    def get_partitions(self, filter: Union[bool, int, float] = False) -> dict:
+        out_partitions = {}
+
+        if isinstance(filter, bool) and filter:
+            thresh = len(self.df) * 0.185
+        elif isinstance(filter, int):
+            thresh = filter
+        elif isinstance(filter, float):
+            thresh = len(self.df) * filter
+        else:
+            thresh = 0
+
+        for key, part in self.partitions.items():
+            if len(part['test']) < thresh:
+                continue
+            out_partitions[key] = part
+
+        return out_partitions.items()
 
     def from_precalculated(self, data_path: str):
         """Load partition indexes if they have already being calculated.
