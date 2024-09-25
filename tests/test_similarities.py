@@ -108,7 +108,7 @@ def test_mapchiral():
     df = pd.DataFrame({'smiles': smiles})
     sim_df = calculate_similarity(
         df, data_type='small_molecule',
-        similarity_metric='map4',
+        similarity_metric='mapc',
         distance='jaccard',
         field_name='smiles',
         threshold=0.
