@@ -562,13 +562,12 @@ def _fingerprint_alignment(
             raise ImportError('This fingerprint requires mapchiral to be installed.')
 
         def _get_fp(smile: str):
-            mol = Chem.MolFromSmiles(smile)
+            mol = Chem.MolFromSmiles(smile, sanitize=True)
             fp = encode(mol, max_radius=radius,
                         n_permutations=bits, mapping=False)
             return fp
 
         if distance != 'jaccard':
-            print(distance)
             raise ValueError('MAPc can only be used with `jaccard`.')
 
     if distance in BULK_SIM_METRICS:
@@ -587,14 +586,16 @@ def _fingerprint_alignment(
     if verbose > 0:
         print(f'Calculating molecular similarities using ECFP-{radius * 2}',
               f'with {bits:,} bits and Tanimoto distance...')
-    query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads)
+    query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads,
+                           desc='Query FPs')
 
     if df_target is None:
         df_target = df_query
         target_fps = query_fps
     else:
         target_fps = thread_map(_get_fp, df_target[field_name],
-                                max_workers=threads)
+                                max_workers=threads,
+                                desc='Target FPs')
 
     if fingerprint == 'mapc':
         query_fps = np.stack(query_fps)
@@ -603,7 +604,7 @@ def _fingerprint_alignment(
     chunk_size = threads * 1_000
     chunks_target = (len(df_target) // chunk_size) + 1
     queries, targets, metrics = [], [], []
-    pbar = tqdm(range(len(query_fps)))
+    pbar = tqdm(range(len(query_fps)), desc='Similarity calculation')
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for chunk in pbar:
