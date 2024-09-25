@@ -21,7 +21,7 @@ class SimilarityArguments:
         data_type: str = 'protein',
         similarity_metric: str = 'mmseqs+prefilter',
         field_name: str = 'sequence',
-        min_threshold: float = 0.25,
+        min_threshold: float = 0.0,
         threads: int = cpu_count(),
         verbose: int = 0,
         save_alignment: bool = False,
@@ -63,7 +63,7 @@ class SimilarityArguments:
         (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
         :type field_name: str, optional
         :param threshold: Similarity value above which entities will be
-        considered similar, defaults to 0.3
+        considered similar, defaults to 0.0
         :type threshold: float, optional
         :param threads: Number of threads available for parallalelization,
         defaults to cpu_count()
@@ -144,9 +144,9 @@ class SimilarityArguments:
             self.bits = 1_022
             self.radius = radius
         elif self.data_type == 'protein':
-            self.denominator = 'shortest'
+            self.denominator = 'n_aligned'
         elif self.data_type == 'protein_structure':
-            self.denominator = 'shortest'
+            self.denominator = 'n_aligned'
             self.representation = '3di+aa'
         elif (self.data_type in ['DNA', 'RNA', 'protein'] and
               self.similarity_metric == 'needle'):
@@ -183,8 +183,24 @@ class HestiaDatasetGenerator:
     def get_partition(self, partition: Union[str, float]) -> dict:
         return self.partitions[partition]
 
-    def get_partitions(self) -> dict:
-        return self.partitions.items()
+    def get_partitions(self, filter: Union[bool, int, float] = False) -> dict:
+        out_partitions = {}
+
+        if isinstance(filter, bool) and filter:
+            thresh = len(self.df) * 0.185
+        elif isinstance(filter, int):
+            thresh = filter
+        elif isinstance(filter, float):
+            thresh = len(self.df) * filter
+        else:
+            thresh = 0
+
+        for key, part in self.partitions.items():
+            if len(part['test']) < thresh:
+                continue
+            out_partitions[key] = part
+
+        return out_partitions.items()
 
     def from_precalculated(self, data_path: str):
         """Load partition indexes if they have already being calculated.
@@ -353,6 +369,7 @@ class HestiaDatasetGenerator:
         }
         self.partitions = {}
         if self.sim_df is None:
+            similarity_args.min_threshold = min_threshold
             self.calculate_similarity(similarity_args)
         print('Calculating partitions...')
 
