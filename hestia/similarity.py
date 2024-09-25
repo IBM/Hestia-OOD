@@ -569,7 +569,7 @@ def _fingerprint_alignment(
 
         if distance != 'jaccard':
             print(distance)
-            raise ValueError('MAP4 can only be used with `jaccard`.')
+            raise ValueError('MAPc can only be used with `jaccard`.')
 
     if distance in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[distance]
@@ -596,7 +596,7 @@ def _fingerprint_alignment(
         target_fps = thread_map(_get_fp, df_target[field_name],
                                 max_workers=threads)
 
-    if fingerprint == 'map4':
+    if fingerprint == 'mapc':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
 
