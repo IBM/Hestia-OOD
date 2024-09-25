@@ -21,7 +21,7 @@ class SimilarityArguments:
         data_type: str = 'protein',
         similarity_metric: str = 'mmseqs+prefilter',
         field_name: str = 'sequence',
-        min_threshold: float = 0.25,
+        min_threshold: float = 0.0,
         threads: int = cpu_count(),
         verbose: int = 0,
         save_alignment: bool = False,
@@ -63,7 +63,7 @@ class SimilarityArguments:
         (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
         :type field_name: str, optional
         :param threshold: Similarity value above which entities will be
-        considered similar, defaults to 0.3
+        considered similar, defaults to 0.0
         :type threshold: float, optional
         :param threads: Number of threads available for parallalelization,
         defaults to cpu_count()
@@ -353,6 +353,7 @@ class HestiaDatasetGenerator:
         }
         self.partitions = {}
         if self.sim_df is None:
+            similarity_args.min_threshold = min_threshold
             self.calculate_similarity(similarity_args)
         print('Calculating partitions...')
 
