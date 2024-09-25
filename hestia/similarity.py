@@ -293,8 +293,8 @@ def calculate_similarity(
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}'
                 raise NotImplementedError(mssg)
-        elif (data_type.lower() == 'smiles' or 
-              ('molecule' in data_type.lower() and 
+        elif (data_type.lower() == 'smiles' or
+              ('molecule' in data_type.lower() and
                'small' in data_type.lower())):
             if similarity_metric == 'fingerprint':
                 print('Warning: Using `ecfp` fingerprint by default')
@@ -555,7 +555,7 @@ def _fingerprint_alignment(
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
-    elif fingerprint == 'map4':
+    elif fingerprint == 'mapc':
         try:
             from mapchiral.mapchiral import encode
         except ModuleNotFoundError:
