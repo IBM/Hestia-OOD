@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from hestia.utils import BULK_SIM_METRICS
 
 
-SUPPORTED_FPS = ['ecfp', 'map4', 'maccs']
+SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
@@ -327,7 +327,7 @@ def calculate_similarity(
                 mssg = f'Alignment method: {similarity_metric} '
                 mssg += f'not implemented for data_type: {data_type}.'
                 mssg += "Please use one of the following "
-                mssg += f"{', '.join([SUPPORTED_FPS])}"
+                mssg += f"{', '.join(SUPPORTED_FPS)}"
                 raise NotImplementedError(mssg)
 
         else:
