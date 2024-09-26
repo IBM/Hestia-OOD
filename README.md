@@ -60,9 +60,6 @@ pip install rdkit
 
 #### 3.2. Sequence alignment
 
-If installation not in conda environment, please check installation instructions for your particular device:
-
-
   - MMSeqs2 [https://github.com/steineggerlab/mmseqs2](https://github.com/steineggerlab/mmseqs2)
   ```bash
   # static build with AVX2 (fastest) (check using: cat /proc/cpuinfo | grep avx2)
