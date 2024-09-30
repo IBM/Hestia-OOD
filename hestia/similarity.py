@@ -68,7 +68,7 @@ def calculate_similarity(
     data_type: str = 'protein',
     similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
     field_name: str = 'sequence',
-    threshold: float = 0.3,
+    threshold: float = 0.,
     threads: int = cpu_count(),
     verbose: int = 0,
     save_alignment: bool = False,
