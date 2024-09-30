@@ -29,8 +29,8 @@
 Installing in a conda environment is recommended. For creating the environment, please run:
 
 ```bash
-conda create -n autopeptideml python
-conda activate autopeptideml
+conda create -n hestia python
+conda activate hestia
 ```
 
 ### 1. Python Package
