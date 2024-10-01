@@ -68,7 +68,7 @@ def calculate_similarity(
     data_type: str = 'protein',
     similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
     field_name: str = 'sequence',
-    threshold: float = 0.3,
+    threshold: float = 0.,
     threads: int = cpu_count(),
     verbose: int = 0,
     save_alignment: bool = False,
@@ -916,10 +916,6 @@ def _mmseqs2_alignment(
         if i not in target_indxs:
             to_add.add(i)
     df['metric'] = df['fident']
-    new_df = pd.DataFrame([{'query': i, 'target': i, 'metric': 0.0}
-                          for i in to_add])
-    df = pd.concat([df, new_df])
-
     if save_alignment:
         if filename is None:
             filename = time.time()

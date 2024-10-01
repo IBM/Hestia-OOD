@@ -140,8 +140,8 @@ class SimilarityArguments:
         self.representation = representation
         self.needle_config = needle_config
 
-        if self.data_type == 'small_molecule':
-            self.bits = 1_022
+        if 'molecule' in self.data_type:
+            self.bits = bits
             self.radius = radius
         elif self.data_type == 'protein':
             self.denominator = 'n_aligned'
