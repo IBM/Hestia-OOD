@@ -144,13 +144,17 @@ class SimilarityArguments:
             self.bits = bits
             self.radius = radius
         elif self.data_type == 'protein':
-            self.denominator = 'n_aligned'
+            self.denominator = (denominator if denominator is None
+                                else 'n_aligned')
         elif self.data_type == 'protein_structure':
-            self.denominator = 'n_aligned'
-            self.representation = '3di+aa'
+            self.denominator = (denominator if denominator is None
+                                else 'n_aligned')
+            self.representation = (representation if representation is None
+                                   else '3di+aa')
         elif (self.data_type in ['DNA', 'RNA', 'protein'] and
               self.similarity_metric == 'needle'):
-            self.denominator = 'shortest'
+            self.denominator = (denominator if denominator is None
+                                else 'n_aligned')
             self.needle_config = {
                 "gapopen": 10,
                 "gapextend": 0.5,
@@ -158,9 +162,10 @@ class SimilarityArguments:
                 "endopen": 10,
                 "endextend": 0.5,
                 "matrix": "EBLOSUM62"
-            }
+            } if needle_config is not None else needle_config
         elif self.data_type == 'embedding':
-            self.distance = 'cosine'
+            self.distance = (distance if distance is None
+                             else 'cosine')
 
 
 class HestiaDatasetGenerator:
