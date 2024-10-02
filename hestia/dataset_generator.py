@@ -187,11 +187,11 @@ class HestiaDatasetGenerator:
         out_partitions = {}
 
         if isinstance(filter, bool) and filter:
-            thresh = len(self.df) * 0.185
+            thresh = len(self.data) * 0.185
         elif isinstance(filter, int):
             thresh = filter
         elif isinstance(filter, float):
-            thresh = len(self.df) * filter
+            thresh = len(self.data) * filter
         else:
             thresh = 0
 
