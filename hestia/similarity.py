@@ -20,7 +20,8 @@ SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 def sim_df2mtx(sim_df: pd.DataFrame,
                threshold: float = 0.05,
                size_query: Optional[int] = None,
-               size_target: Optional[int] = None) -> spr.bsr_matrix:
+               size_target: Optional[int] = None,
+               boolean_out: Optional[bool] = True) -> spr.bsr_matrix:
     """_summary_
 
     :param sim_df: _description_
@@ -41,20 +42,22 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     if size_target is None:
         size_target = size_query
 
-    dtype = np.float32
+    dtype = bool if boolean_out else np.float32
     row_np = np.zeros((1, size_target), dtype=dtype)
-    sim_df.sort_values(by='query', ignore_index=True, inplace=True)
     queries = sim_df['query'].to_numpy()
     targets = sim_df['target'].to_numpy()
     metrics = sim_df['metric'].to_numpy()
 
     for idx in range(size_query):
+        new_row_np = row_np.copy()
         query_idxs = queries == idx
         inds, values = targets[query_idxs], metrics[query_idxs]
         slicing = values > threshold
         inds, values = inds[slicing], values[slicing]
-        new_row_np = row_np.copy()
-        new_row_np[:, inds] = values
+        if boolean_out:
+            new_row_np[:, inds] = values > threshold
+        else:
+            new_row_np[:, inds] = values
         row_scp = spr.csr_array(new_row_np, dtype=dtype)
         all_rows.append(row_scp)
 
@@ -489,6 +492,8 @@ def _embedding_distance(
                        'metrics': metrics})
     if distance not in ['cosine-np']:
         df.metrics = df.metrics.map(lambda x: 1 / (1 + x))
+
+    df = df[df['metric'] > threshold]
     if save_alignment:
         if filename is None:
             filename = time.time()
@@ -637,6 +642,7 @@ def _fingerprint_alignment(
                     metrics.append(metric)
 
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
+    df = df[df['metric'] > threshold]
     if save_alignment:
         if filename is None:
             filename = time.time()
@@ -779,7 +785,7 @@ def _foldseek_alignment(
     df['query'] = df['query'].astype(int)
     df['target'] = df['target'].map(lambda x: tgt2idx[x.split('.pdb')[0]])
     df['target'] = df['target'].astype(int)
-
+    df = df[df['metric'] > threshold]
     shutil.rmtree(tmp_dir)
     return df
 
@@ -878,7 +884,7 @@ def _mmseqs2_alignment(
 
     if is_nucleotide or prefilter:
         subprocess.run(['mmseqs', 'prefilter', '-s',
-                        '7.5', f'{tmp_dir}/db_query',
+                        '6', f'{tmp_dir}/db_query',
                         f'{tmp_dir}/db_target',
                         f'{tmp_dir}/pref', '-v',
                         f'{mmseqs_v}'])
@@ -887,7 +893,6 @@ def _mmseqs2_alignment(
             os.path.dirname(os.path.realpath(__file__)),
             'utils', 'mmseqs_fake_prefilter.sh'
         )
-        # This whole thing has to be checked compare to original
         subprocess.run([program_path,
                         f'{tmp_dir}/db_query', f'{tmp_dir}/db_target',
                         f'{tmp_dir}/pref', 'db_query'])
@@ -896,7 +901,8 @@ def _mmseqs2_alignment(
     subprocess.run(['mmseqs', 'align',  f'{tmp_dir}/db_query',
                     f'{tmp_dir}/db_target', f'{tmp_dir}/pref',
                     f'{tmp_dir}/align_db', '--alignment-mode', '3',
-                    '-e', 'inf', '--seq-id-mode', denominator,
+                    '-e', '1e2', '--seq-id-mode', denominator,
+                    '--cov-mode', '5', '-c', '0.7',
                     '-v', f'{mmseqs_v}', '--threads', f'{threads}'])
 
     file = os.path.join(tmp_dir, 'alignments.tab')
@@ -906,16 +912,8 @@ def _mmseqs2_alignment(
                     file, '-v', '1'])
 
     df = pd.read_csv(file, sep='\t')
-    query_indxs = df['query'].unique().tolist()
-    target_indxs = df['target'].unique().tolist()
-    to_add = set()
-    for i in df_query.index:
-        if i not in query_indxs:
-            to_add.add(i)
-    for i in df_target.index:
-        if i not in target_indxs:
-            to_add.add(i)
     df['metric'] = df['fident']
+    df = df[df['metric'] > threshold]
     if save_alignment:
         if filename is None:
             filename = time.time()
@@ -1057,7 +1055,7 @@ def _needle_alignment(
             filename = time.time()
         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
     shutil.rmtree(tmp_dir)
-    # df = df[df['metric'] > threshold]
+    df = df[df['metric'] > threshold]
     return df
 
 
