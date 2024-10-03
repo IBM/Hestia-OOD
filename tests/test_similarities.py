@@ -64,11 +64,11 @@ def test_embedding_cosine_similarity():
     objective_df = pd.DataFrame({
         'queries': [0, 0, 1, 1],
         'targets': [0, 1, 0, 1],
-        'metrics': [1., 0.76962, 0.76962, 1.]
+        'metric': [1., 0.76962, 0.76962, 1.]
     })
     assert sim_df.queries.tolist() == objective_df.queries.tolist()
     assert sim_df.targets.tolist() == objective_df.targets.tolist()
-    np.testing.assert_allclose(sim_df.metrics, objective_df.metrics,
+    np.testing.assert_allclose(sim_df.metric, objective_df.metric,
                                rtol=0.001)
 
 
@@ -91,11 +91,11 @@ def test_embedding_euclidean_similarity():
     objective_df = pd.DataFrame({
         'queries': [0, 0, 1, 1],
         'targets': [0, 1, 0, 1],
-        'metrics': [1.,  0.440091, 0.440091, 1.]
+        'metric': [1.,  0.440091, 0.440091, 1.]
     })
     assert sim_df.queries.tolist() == objective_df.queries.tolist()
     assert sim_df.targets.tolist() == objective_df.targets.tolist()
-    np.testing.assert_allclose(sim_df.metrics, objective_df.metrics,
+    np.testing.assert_allclose(sim_df.metric, objective_df.metric,
                                rtol=0.001)
 
 
@@ -167,5 +167,5 @@ def test_simdf2mtx():
         df, data_type='small_molecule', similarity_metric='ecfp',
         field_name='smiles', distance='tanimoto'
     )
-    mtx = sim_df2mtx(sim_df).toarray()
+    mtx = sim_df2mtx(sim_df, boolean_out=False).toarray()
     np.testing.assert_allclose(mtx, objective, rtol=0.001)
