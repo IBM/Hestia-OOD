@@ -489,9 +489,9 @@ def _embedding_distance(
                     metrics.append(metric)
 
     df = pd.DataFrame({'queries': queries, 'targets': targets,
-                       'metrics': metrics})
+                       'metric': metrics})
     if distance not in ['cosine-np']:
-        df.metrics = df.metrics.map(lambda x: 1 / (1 + x))
+        df.metric = df.metric.map(lambda x: 1 / (1 + x))
 
     df = df[df['metric'] > threshold]
     if save_alignment:
