@@ -12,6 +12,7 @@
 
 - **Documentation:**  <a href="https://ibm.github.io/Hestia-OOD/" target="_blank">https://ibm.github.io/Hestia-OOD</a>
 - **Source Code:** <a href="https://github.com/IBM/Hestia-OOD" target="_blank">https://github.com/IBM/Hestia-OOD</a>
+- **Paper pre-print:** <a href="https://www.biorxiv.org/content/10.1101/2024.03.14.584508" target="_blank">https://www.biorxiv.org/content/10.1101/2024.03.14.584508</a>
 
 ## Contents
 
