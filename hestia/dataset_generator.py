@@ -5,7 +5,6 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from scipy.stats import wilcoxon
 from sklearn.metrics import auc
 from tqdm import tqdm
 
@@ -553,6 +552,7 @@ class HestiaDatasetGenerator:
         :type statistical_test: str, optional
         :rtype: np.ndarray
         """
+        from scipy.stats import wilcoxon
         stat_tests = {
             'wilcoxon': wilcoxon
         }
