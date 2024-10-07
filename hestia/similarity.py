@@ -766,7 +766,7 @@ def _foldseek_alignment(
     subprocess.run([foldseek, 'convertalis', db_query, db_target,
                     alignment_db, alignment_csv, '--format-mode', '4',
                     '--threads', str(threads), '--format-output',
-                    'query,target,fident,alnlen,qlen,tlen,prob',
+                    'query,target,fident,alnlen,qlen,tlen,prob,alntmscore',
                     '-v', str(mmseqs_v)])
 
     df = pd.read_csv(alignment_csv, sep='\t')
@@ -780,10 +780,16 @@ def _foldseek_alignment(
             filename = time.time()
         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
 
-    df['metric'] = 1 - df['prob']
-    df['query'] = df['query'].map(lambda x: qry2idx[x.split('.pdb')[0]])
+    if representation.lower() == 'tm':
+        df['metric'] = df['alntmscore']
+    else:
+        df['metric'] = df['prob']
+
+    df['query'] = df['query'].map(lambda x: qry2idx[
+        x.split('.pdb')[0].split('_')[0]])
     df['query'] = df['query'].astype(int)
-    df['target'] = df['target'].map(lambda x: tgt2idx[x.split('.pdb')[0]])
+    df['target'] = df['target'].map(lambda x: tgt2idx[
+        x.split('.pdb')[0].split('_')[0]])
     df['target'] = df['target'].astype(int)
     df = df[df['metric'] > threshold]
     shutil.rmtree(tmp_dir)

@@ -514,6 +514,8 @@ def graph_part(
         labels = np.zeros(mtx.shape[0], dtype=np.int8)
     if verbose > 1:
         print('Clustering using limited agglomerative clustering algorithm...')
+    if n_parts is None:
+        n_parts = 10
     clusters = limited_agglomerative_clustering(mtx, n_parts, threshold,
                                                 labels)
     cluster_inds, cluster_sizes = np.unique(clusters, return_counts=True)
