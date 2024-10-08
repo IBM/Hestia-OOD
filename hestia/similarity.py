@@ -589,8 +589,8 @@ def _fingerprint_alignment(
         raise ValueError(f'{field_name} not found in target DataFrame')
 
     if verbose > 0:
-        print(f'Calculating molecular similarities using ECFP-{radius * 2}',
-              f'with {bits:,} bits and Tanimoto distance...')
+        print(f'Calculating molecular similarities using {fingerprint}-{radius * 2}',
+              f'with {bits:,} bits and {distance} index...')
     query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads,
                            desc='Query FPs')
 
