@@ -309,7 +309,7 @@ class HestiaDatasetGenerator:
     def calculate_partitions(
         self,
         label_name: str = None,
-        min_threshold: float = 0.3,
+        min_threshold: float = 0.,
         threshold_step: float = 0.05,
         test_size: float = 0.2,
         valid_size: float = 0.1,
