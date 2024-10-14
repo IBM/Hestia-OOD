@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import pandas as pd
 from scipy.sparse.csgraph import connected_components
 from tqdm import tqdm
@@ -124,37 +125,31 @@ def _greedy_cover_set(
 
     sim_df = sim_df[sim_df['metric'] > threshold]
     neighbours = _find_connectivity(df, sim_df)
-    df['conectivity'] = list(map(len, neighbours))
-    df.sort_values(by='conectivity', ascending=False, inplace=True)
+    order = np.argsort(neighbours)[::-1]
 
-    clusters = []
+    clusters = np.zeros((len(df)))
     clustered = set()
     if verbose > 2:
-        pbar = tqdm(df.index)
+        pbar = tqdm(order)
     else:
-        pbar = df.index
+        pbar = order
 
     for i in pbar:
         if i in clustered:
             continue
-        in_cluster = neighbours.pop(0)
+        in_cluster = neighbours[i]
         in_cluster.update([i])
         in_cluster = in_cluster.difference(clustered)
-
-        for j in in_cluster:
-            clusters.append({
-                'cluster': i,
-                'member': j
-            })
         clustered.update(in_cluster)
 
-    cluster_df = pd.DataFrame(clusters)
-
+        for j in in_cluster:
+            clusters[j] = i
+    unique_clusters, cluster_pop = np.unique(clusters, return_counts=True)
     if verbose > 1:
         print('Clustering has generated:',
-              f'{len(cluster_df.cluster.unique()):,d} clusters for',
-              f'{len(cluster_df):,} entities')
-    return cluster_df
+              f'{len(unique_clusters):,d} clusters for',
+              f'{len(df):,} entities')
+    return clusters
 
 
 def _connected_components_clustering(
