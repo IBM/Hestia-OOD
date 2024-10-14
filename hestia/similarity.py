@@ -483,7 +483,7 @@ def _embedding_distance(
                     targets.append(int((idx * chunk_size) + idx_target))
                     metrics.append(metric)
 
-    df = pd.DataFrame({'queries': queries, 'targets': targets,
+    df = pd.DataFrame({'query': queries, 'target': targets,
                        'metric': metrics})
     if distance not in ['cosine-np']:
         df.metric = df.metric.map(lambda x: 1 / (1 + x))
