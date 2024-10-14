@@ -19,8 +19,6 @@ def bulk_np_tanimoto(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
         c = np.dot(u, bulk[i])
         denominator = (a + b) - c
         if denominator == 0:
-            print(a, b, c)
-        if denominator == 0:
             out[i] = 1
         else:
             out[i] = c / denominator
@@ -82,7 +80,6 @@ def bulk_cosine_similarity(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
         out[i] = cosine_similarity(
             u.reshape(1, -1), bulk[i].reshape(1, -1)
         ).item()
-        print(out[i])
     return out
 
 
@@ -93,7 +90,7 @@ def bulk_binary_manhattan_similarity(
         distance = manhattan_distances(
             u.reshape(1, -1), bulk[i].reshape(1, -1)
         ).item() / (u.shape[0])
-        out[i] = 1 - distance
+        out[i] = distance
     return out
 
 
@@ -104,7 +101,7 @@ def bulk_binary_euclidean_similarity(
         distance = euclidean_distances(
             u.reshape(1, -1), bulk[i].reshape(1, -1)
         ).item() / (u.shape[0])
-        out[i] = 1 - distance
+        out[i] = distance
     return out
 
 
