@@ -445,11 +445,6 @@ def _embedding_distance(
     to_df: bool = True,
     **kwargs
 ) -> pd.DataFrame:
-    try:
-        from scipy.spatial.distance import cdist
-    except ModuleNotFoundError:
-        raise ImportError("This function requires Scipy to be installed.")
-
     if target_embds is None:
         target_embds = query_embds
 
