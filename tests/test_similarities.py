@@ -62,12 +62,12 @@ def test_embedding_cosine_similarity():
     sim_df = calculate_similarity(df_query, similarity_metric='embedding',
                                   distance='cosine-np')
     objective_df = pd.DataFrame({
-        'queries': [0, 0, 1, 1],
-        'targets': [0, 1, 0, 1],
+        'query': [0, 0, 1, 1],
+        'target': [0, 1, 0, 1],
         'metric': [1., 0.76962, 0.76962, 1.]
     })
-    assert sim_df.queries.tolist() == objective_df.queries.tolist()
-    assert sim_df.targets.tolist() == objective_df.targets.tolist()
+    assert sim_df['query'].tolist() == objective_df['query'].tolist()
+    assert sim_df['target'].tolist() == objective_df['target'].tolist()
     np.testing.assert_allclose(sim_df.metric, objective_df.metric,
                                rtol=0.001)
 
@@ -89,12 +89,12 @@ def test_embedding_euclidean_similarity():
     sim_df = calculate_similarity(df_query, similarity_metric='embedding',
                                   distance='euclidean')
     objective_df = pd.DataFrame({
-        'queries': [0, 0, 1, 1],
-        'targets': [0, 1, 0, 1],
+        'query': [0, 0, 1, 1],
+        'target': [0, 1, 0, 1],
         'metric': [1.,  0.440091, 0.440091, 1.]
     })
-    assert sim_df.queries.tolist() == objective_df.queries.tolist()
-    assert sim_df.targets.tolist() == objective_df.targets.tolist()
+    assert sim_df['query'].tolist() == objective_df['query'].tolist()
+    assert sim_df.target.tolist() == objective_df.target.tolist()
     np.testing.assert_allclose(sim_df.metric, objective_df.metric,
                                rtol=0.001)
 
