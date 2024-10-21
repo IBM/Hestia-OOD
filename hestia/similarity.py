@@ -622,7 +622,10 @@ def _fingerprint_alignment(
 
     queries = np.zeros_like(metrics, dtype=index_type)
     targets = np.zeros_like(metrics, dtype=index_type)
-    pbar = tqdm(range(len(query_fps)), desc='Similarity calculation')
+    if verbose > 1:
+        pbar = tqdm(range(query_size), desc='Similarity calculation')
+    else:
+        pbar = range(query_size)
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for chunk in pbar:
@@ -648,16 +651,20 @@ def _fingerprint_alignment(
                     raise RuntimeError(job.exception())
                 result = job.result()
                 for idx_target, metric in enumerate(result):
-                    pointer = (idx * query_size) + idx_target
+                    target_pointer = int((idx * chunk_size) + idx_target)
+                    query_pointer = int(chunk)
+                    pointer = (query_pointer * query_size) + target_pointer
                     if metric < threshold:
                         continue
-                    queries[pointer] = int(chunk)
-                    targets[pointer] = int((idx * chunk_size) + idx_target)
+                    queries[pointer] = query_pointer
+                    targets[pointer] = target_pointer
                     metrics[pointer] = metric
+
     mask = metrics > threshold
     queries = queries[mask]
     targets = targets[mask]
     metrics = metrics[mask]
+
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
     df = df[df['metric'] > threshold]
     if save_alignment:
