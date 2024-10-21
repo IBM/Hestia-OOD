@@ -600,10 +600,28 @@ def _fingerprint_alignment(
     if fingerprint == 'mapc':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
+    if isinstance(query_fps, np.ndarray):
+        max_complex = query_fps.shape[0] * target_fps.shape[0]
+        query_size = query_fps.shape[0]
+    else:
+        max_complex = len(query_fps) * len(target_fps)
+        query_size = len(query_fps)
 
     chunk_size = threads * 1_000
     chunks_target = (len(df_target) // chunk_size) + 1
-    queries, targets, metrics = [], [], []
+    metrics = np.zeros((max_complex), dtype=np.float16)
+
+    if max_complex < 1e5:
+        index_type = np.uint16
+    elif max_complex < 1e9:
+        index_type = np.uint32
+    elif max_complex < 1e19:
+        index_type = np.uint64
+    else:
+        index_type = np.uint128
+
+    queries = np.zeros_like(metrics, dtype=index_type)
+    targets = np.zeros_like(metrics, dtype=index_type)
     pbar = tqdm(range(len(query_fps)), desc='Similarity calculation')
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
@@ -630,12 +648,16 @@ def _fingerprint_alignment(
                     raise RuntimeError(job.exception())
                 result = job.result()
                 for idx_target, metric in enumerate(result):
+                    pointer = (idx * query_size) + idx_target
                     if metric < threshold:
                         continue
-                    queries.append(int(chunk))
-                    targets.append(int((idx * chunk_size) + idx_target))
-                    metrics.append(metric)
-
+                    queries[pointer] = int(chunk)
+                    targets[pointer] = int((idx * chunk_size) + idx_target)
+                    metrics[pointer] = metric
+    mask = metrics > threshold
+    queries = queries[mask]
+    targets = targets[mask]
+    metrics = metrics[mask]
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
     df = df[df['metric'] > threshold]
     if save_alignment:
