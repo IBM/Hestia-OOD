@@ -60,7 +60,8 @@ def ccpart(
     bits: int = 1024,
     radius: int = 2,
     config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None
+    sim_df: Optional[pd.DataFrame] = None,
+    filter_smaller: Optional[bool] = True
 ) -> Union[Tuple[list, list, list], Tuple[list, list, list, list]]:
     """Use CCPart algorithm
     to generate training and evaluation subsets
@@ -187,7 +188,8 @@ def ccpart(
                                    threshold=threshold,
                                    verbose=verbose,
                                    cluster_algorithm='connected_components',
-                                   sim_df=sim_df)
+                                   sim_df=sim_df,
+                                   filter_smaller=filter_smaller)
 
     partition_labs = cluster_df.cluster.tolist()
     parts, lengths = np.unique(partition_labs, return_counts=True)
@@ -393,7 +395,8 @@ def graph_part(
     bits: int = 1024,
     radius: int = 2,
     config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None
+    sim_df: Optional[pd.DataFrame] = None,
+    filter_smaller: Optional[bool] = True
 ):
     """Use a custom implementation of the GraphPart
     algorithm, doi: https://doi.org/10.1093/nargab/lqad088,
@@ -506,7 +509,11 @@ def graph_part(
             representation=representation, config=config
         )
 
-    mtx = sim_df2mtx(sim_df, threshold, len(df))
+    mtx = sim_df2mtx(sim_df, len(df))
+    if filter_smaller:
+        mtx = mtx >= threshold
+    else:
+        mtx = mtx <= threshold
 
     if label_name is not None:
         labels = df[label_name]
