@@ -18,51 +18,24 @@ SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 
 
 def sim_df2mtx(sim_df: pd.DataFrame,
-               threshold: float = 0.05,
                size_query: Optional[int] = None,
                size_target: Optional[int] = None,
-               boolean_out: Optional[bool] = True) -> spr.bsr_matrix:
-    """_summary_
-
-    :param sim_df: _description_
-    :type sim_df: pd.DataFrame
-    :param threshold: _description_, defaults to 0.05
-    :type threshold: float, optional
-    :param size_query: _description_, defaults to None
-    :type size_query: Optional[int], optional
-    :param size_target: _description_, defaults to None
-    :type size_target: Optional[int], optional
-    :return: _description_
-    :rtype: spr.bsr_matrix
-    """
-    all_rows = []
+               boolean_out: Optional[bool] = True) -> spr.csr_matrix:
     if size_query is None:
         size_query = len(sim_df['query'].unique())
-
     if size_target is None:
         size_target = size_query
+    dtype = np.bool_ if boolean_out else sim_df.metric.dtype
+    if dtype == np.float16:
+        dtype = np.float32
 
-    dtype = bool if boolean_out else np.float32
-    row_np = np.zeros((1, size_target), dtype=dtype)
-    queries = sim_df['query'].to_numpy()
-    targets = sim_df['target'].to_numpy()
-    metrics = sim_df['metric'].to_numpy()
-
-    for idx in range(size_query):
-        new_row_np = row_np.copy()
-        query_idxs = queries == idx
-        inds, values = targets[query_idxs], metrics[query_idxs]
-        slicing = values > threshold
-        inds, values = inds[slicing], values[slicing]
-        if boolean_out:
-            new_row_np[:, inds] = values > threshold
-        else:
-            new_row_np[:, inds] = values
-        row_scp = spr.csr_array(new_row_np, dtype=dtype)
-        all_rows.append(row_scp)
-
-    matrix = spr.csr_matrix(spr.vstack(all_rows))
-    return matrix.maximum(matrix.transpose())
+    queries = sim_df.iloc[:, 0].to_numpy()
+    targets = sim_df.iloc[:, 1].to_numpy()
+    metrics = sim_df.iloc[:, 2].to_numpy()
+    mtx = spr.coo_matrix((metrics, (queries, targets)),
+                         shape=(size_query, size_target),
+                         dtype=dtype)
+    return mtx.maximum(mtx.transpose())
 
 
 def calculate_similarity(
@@ -567,6 +540,7 @@ def _fingerprint_alignment(
                         n_permutations=bits, mapping=False)
             return fp
 
+
         if distance != 'jaccard':
             raise ValueError('MAPc can only be used with `jaccard`.')
 
@@ -578,24 +552,40 @@ def _fingerprint_alignment(
             f"Supported metrics: {', '.join(BULK_SIM_METRICS.keys())}"
         )
 
+    def _parallel_fps(mols: List[str], mssg: str) -> list:
+        fps = []
+        jobs = []
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            for mol in mols:
+                job = executor.submit(_get_fp, mol)
+                jobs.append(job)
+            pbar = tqdm(jobs, desc=mssg)
+            for job in pbar:
+                if job.exception() is not None:
+                    raise RuntimeError(job.exception())
+                result = job.result()
+                fps.append(result)
+        pbar.close()
+        return fps
+
     if (field_name not in df_query.columns):
         raise ValueError(f'{field_name} not found in query DataFrame')
     if df_target is not None and field_name not in df_target.columns:
         raise ValueError(f'{field_name} not found in target DataFrame')
 
-    if verbose > 0:
+    if verbose > 1:
         print(f'Calculating molecular similarities using {fingerprint}-{radius * 2}',
-              f'with {bits:,} bits and {distance} index...')
-    query_fps = thread_map(_get_fp, df_query[field_name], max_workers=threads,
-                           desc='Query FPs')
+              f'with {bits:,} bits and {distance} index...')\
+
+    query_mols = df_query[field_name].tolist()
+    chunk_size = threads * 1_000
+    query_fps = _parallel_fps(query_mols, 'Query FPs')
 
     if df_target is None:
         df_target = df_query
         target_fps = query_fps
     else:
-        target_fps = thread_map(_get_fp, df_target[field_name],
-                                max_workers=threads,
-                                desc='Target FPs')
+        target_fps = _parallel_fps(df_target[field_name], 'Target FPs')
 
     if fingerprint == 'mapc':
         query_fps = np.stack(query_fps)
@@ -607,7 +597,6 @@ def _fingerprint_alignment(
         max_complex = len(query_fps) * len(target_fps)
         query_size = len(query_fps)
 
-    chunk_size = threads * 1_000
     chunks_target = (len(df_target) // chunk_size) + 1
     metrics = np.zeros((max_complex), dtype=np.float16)
 
@@ -623,6 +612,7 @@ def _fingerprint_alignment(
     queries = np.zeros_like(metrics, dtype=index_type)
     targets = np.zeros_like(metrics, dtype=index_type)
     if verbose > 1:
+        print()
         pbar = tqdm(range(query_size), desc='Similarity calculation')
     else:
         pbar = range(query_size)
@@ -944,6 +934,7 @@ def _mmseqs2_alignment(
     df = pd.read_csv(file, sep='\t')
     df['metric'] = df['fident']
     df = df[df['metric'] > threshold]
+    df = df[['query', 'target', 'metric']]
     if save_alignment:
         if filename is None:
             filename = time.time()

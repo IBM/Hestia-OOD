@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -156,9 +157,14 @@ def _connected_components_clustering(
     df: pd.DataFrame,
     sim_df: pd.DataFrame,
     threshold: float,
-    verbose: int
+    verbose: int,
+    filter_smaller: Optional[bool] = True
 ) -> pd.DataFrame:
-    matrix = sim_df2mtx(sim_df, threshold, len(df))
+    matrix = sim_df2mtx(sim_df, len(df))
+    if filter_smaller:
+        matrix = matrix >= threshold
+    else:
+        matrix = matrix <= threshold
     n, labels = connected_components(matrix, directed=False,
                                      return_labels=True)
     cluster_df = [{'cluster': labels[i],
