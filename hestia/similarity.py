@@ -26,6 +26,9 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     if size_target is None:
         size_target = size_query
     dtype = np.bool_ if boolean_out else sim_df.metric.dtype
+    if dtype == np.float16:
+        dtype = np.float32
+
     queries = sim_df.iloc[:, 0].to_numpy()
     targets = sim_df.iloc[:, 1].to_numpy()
     metrics = sim_df.iloc[:, 2].to_numpy()
