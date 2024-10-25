@@ -34,6 +34,9 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     else:
         sim_df = sim_df[sim_df.metric < threshold]
 
+    if dtype == np.float16:
+        dtype = np.float32
+
     queries = sim_df['query'].to_numpy()
     targets = sim_df['target'].to_numpy()
     metrics = sim_df['metric'].to_numpy()
