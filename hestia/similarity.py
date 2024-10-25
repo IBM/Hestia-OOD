@@ -20,18 +20,31 @@ SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 def sim_df2mtx(sim_df: pd.DataFrame,
                size_query: Optional[int] = None,
                size_target: Optional[int] = None,
+               threshold: Optional[float] = 0.0,
+               filter_smaller: Optional[bool] = True,
                boolean_out: Optional[bool] = True) -> spr.csr_matrix:
     if size_query is None:
         size_query = len(sim_df['query'].unique())
     if size_target is None:
         size_target = size_query
+
     dtype = np.bool_ if boolean_out else sim_df.metric.dtype
+    if filter_smaller:
+        sim_df = sim_df[sim_df.metric > threshold]
+    else:
+        sim_df = sim_df[sim_df.metric < threshold]
+
     if dtype == np.float16:
         dtype = np.float32
 
-    queries = sim_df.iloc[:, 0].to_numpy()
-    targets = sim_df.iloc[:, 1].to_numpy()
-    metrics = sim_df.iloc[:, 2].to_numpy()
+    queries = sim_df['query'].to_numpy()
+    targets = sim_df['target'].to_numpy()
+    metrics = sim_df['metric'].to_numpy()
+    if boolean_out:
+        if filter_smaller:
+            metrics[metrics > threshold] = True
+        else:
+            metrics[metrics < threshold] = True
     mtx = spr.coo_matrix((metrics, (queries, targets)),
                          shape=(size_query, size_target),
                          dtype=dtype)
