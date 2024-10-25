@@ -160,11 +160,9 @@ def _connected_components_clustering(
     verbose: int,
     filter_smaller: Optional[bool] = True
 ) -> pd.DataFrame:
-    matrix = sim_df2mtx(sim_df, len(df))
-    if filter_smaller:
-        matrix = matrix >= threshold
-    else:
-        matrix = matrix <= threshold
+    matrix = sim_df2mtx(sim_df, len(df), len(df),
+                        threshold=threshold,
+                        filter_smaller=filter_smaller)
     n, labels = connected_components(matrix, directed=False,
                                      return_labels=True)
     cluster_df = [{'cluster': labels[i],
