@@ -16,6 +16,7 @@ def generate_clusters(
     threshold: float = 0.4,
     verbose: int = 0,
     cluster_algorithm: str = 'greedy_incremental',
+    filter_smaller: Optional[bool] = True
 ) -> pd.DataFrame:
     """Generates clusters from a DataFrame.
 
@@ -56,7 +57,7 @@ def generate_clusters(
         cluster_df = _greedy_cover_set(df, sim_df, threshold, verbose)
     elif cluster_algorithm in ['connected_components']:
         cluster_df = _connected_components_clustering(df, sim_df, threshold,
-                                                      verbose)
+                                                      verbose, filter_smaller)
     else:
         raise NotImplementedError(
             f'Clustering algorithm: {cluster_algorithm} is not supported'
