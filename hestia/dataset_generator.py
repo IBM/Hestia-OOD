@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from hestia.similarity import (sequence_similarity_mmseqs,
                                sequence_similarity_needle,
+                               sequence_similarity_peptides,
                                molecular_similarity,
                                embedding_similarity,
                                protein_structure_similarity)
@@ -221,12 +222,23 @@ class HestiaDatasetGenerator:
                     filename=sim_args.filename,
                     verbose=sim_args.verbose)
             elif sim_args.alignment_algorithm == 'needle':
-                sim_df = sequence_similarity_mmseqs(
+                sim_df = sequence_similarity_needle(
                     df_query=self.data, df_target=sim_args.target_df,
                     field_name=sim_args.field_name,
                     denominator=sim_args.denominator,
                     is_nucleotide=sim_args.is_nucleotide,
                     config=sim_args.needle_config,
+                    threshold=sim_args.min_threshold,
+                    threads=sim_args.threads,
+                    save_alignment=sim_args.save_alignment,
+                    filename=sim_args.filename,
+                    verbose=sim_args.verbose
+                )
+            elif sim_args.alignment_algorithm == 'peptides':
+                sim_df = sequence_similarity_peptides(
+                    df_query=self.data, df_target=sim_args.target_df,
+                    field_name=sim_args.field_name,
+                    denominator=sim_args.denominator,
                     threshold=sim_args.min_threshold,
                     threads=sim_args.threads,
                     save_alignment=sim_args.save_alignment,
