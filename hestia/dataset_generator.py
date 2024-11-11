@@ -409,9 +409,29 @@ class HestiaDatasetGenerator:
             return ds
 
     def calculate_augood(
-        self, results: dict,
+        self, results: Dict[float, float],
         target_df: pd.DataFrame, target_field_name: Optional[str]
     ) -> Tuple[np.ndarray, float]:
+        """Calculate the 'area under the GOOD curve' (AU-GOOD) metric.
+
+        This function calculates an AU-GOOD score by computing a weighted metric from similarity values
+        obtained by comparing target deployment distribution to the training distribution. It returns both
+        the weighted GOOD curve values and the AU-GOOD score.
+
+        :param results: A dictionary where keys are bins or thresholds (float) and values are metrics or counts
+                        associated with each bin.
+        :type results: Dict[float, float]
+        :param target_df: A DataFrame containing the target data for similarity comparison. The column
+                        specified by `target_field_name` will be used to populate the similarity
+                        arguments for comparison.
+        :type target_df: pd.DataFrame
+        :param target_field_name: Name of the field in `target_df` that contains target values for comparison.
+        :type target_field_name: Optional[str]
+        :return: A tuple containing:
+                - `good_curve` (np.ndarray): Array of weighted values representing the GOOD curve.
+                - `au_good` (float): The calculated area under the GOOD curve.
+        :rtype: Tuple[np.ndarray, float]
+        """
         t_sim_args = self.sim_args
         target_df[t_sim_args.field_name] = target_df[target_field_name]
         t_sim_args.target_df = target_df
@@ -443,36 +463,6 @@ class HestiaDatasetGenerator:
         good_curve = weights * values
         au_good = np.dot(weights, values)
         return good_curve, au_good
-
-    @staticmethod
-    def plot_good(results: dict, metric: str):
-        """Plot the Area between the similarity-performance
-        curve (out-of-distribution) and the in-distribution performance.
-
-        :param results: Dictionary with key the partition (either threshold
-        value or `random`) and value another dictionary with key the metric name
-        and value the metric value.
-        :type results: dict
-        :param metric: Name of the metric for which the AUSPC is going to be
-        plotted
-        :type metric: str
-        """
-        import matplotlib.pyplot as plt
-        x, y = [], []
-        for key, value in results.items():
-            if key == 'random':
-                continue
-            x.append(float(key))
-            y.append(float(value[metric]))
-        idxs = np.argsort(x)
-        x, y = np.array(x), np.array(y)
-        plt.plot(x[idxs], y[idxs])
-        # plt.plot(x[idxs], [results['random'][metric] for _ in range(len(x))], 'r')
-        plt.ylabel(f'Performance: {metric}')
-        plt.xlabel(f'Threshold similarity')
-        # plt.legend(['SP', 'Random'])
-        # plt.ylim(0, 1.1)
-        # plt.show()
 
     @staticmethod
     def compare_models(
