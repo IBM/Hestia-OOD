@@ -1,11 +1,10 @@
 import gzip
 import json
 from multiprocessing import cpu_count
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import auc
 from tqdm import tqdm
 
 from hestia.similarity import (sequence_similarity, molecular_similarity,
@@ -34,7 +33,9 @@ class SimilarityArguments:
         representation: Optional[str] = None,
         prefilter: Optional[bool] = None,
         sim_function: Optional[str] = None,
-        query_embds: Optional[np.ndarray] = None
+        query_embds: Optional[np.ndarray] = None,
+        target_embds: Optional[np.ndarray] = None,
+        target_df: Optional[pd.DataFrame] = None
     ):
         self.data_type = data_type
         self.field_name = field_name
@@ -43,6 +44,7 @@ class SimilarityArguments:
         self.verbose = verbose
         self.save_alignment = save_alignment
         self.filename = filename
+        self.target_df = target_df
 
         if 'molecule' in self.data_type or 'smiles' in self.data_type:
             self.bits = (1_024 if bits is None else bits)
@@ -89,6 +91,7 @@ class HestiaDatasetGenerator:
         self.data = data
         self.sim_df = None
         self.partitions = None
+        self.sim_args = None
         print('Initialising Hestia Dataset Generator')
         print(f'Number of items in data: {len(self.data):,}')
 
@@ -179,16 +182,19 @@ class HestiaDatasetGenerator:
         with gzip.open(output_path, 'w') as fout:
             fout.write(json.dumps(output).encode('utf-8'))
 
-    def calculate_similarity(self, sim_args: SimilarityArguments):
+    def calculate_similarity(self, sim_args: SimilarityArguments) -> pd.DataFrame:
         """Calculate pairwise similarity between all the elements in the dataset.
 
         :param sim_args: See similarity arguments entry.
         :type similarity_args: SimilarityArguments
         """
         print('Calculating similarity...')
+        if self.sim_args is None:
+            self.sim_args = sim_args
         if 'sequence' in sim_args.data_type:
-            self.sim_df = sequence_similarity(
-                df_query=self.data, field_name=sim_args.field_name,
+            sim_df = sequence_similarity(
+                df_query=self.data, df_target=sim_args.target_df,
+                field_name=sim_args.field_name,
                 prefilter=sim_args.prefilter, denominator=sim_args.denominator,
                 is_nucleotide=sim_args.is_nucleotide,
                 threshold=sim_args.min_threshold,
@@ -197,8 +203,9 @@ class HestiaDatasetGenerator:
                 filename=sim_args.filename,
                 verbose=sim_args.verbose)
         elif 'protein_structure' in sim_args.data_type:
-            self.sim_df = protein_structure_similarity(
-                df_query=self.data, field_name=sim_args.field_name,
+            sim_df = protein_structure_similarity(
+                df_query=self.data, df_target=sim_args.target_df,
+                field_name=sim_args.field_name,
                 prefilter=sim_args.prefilter, denominator=sim_args.denominator,
                 representation=sim_args.representation,
                 threshold=sim_args.min_threshold, threads=sim_args.threads,
@@ -207,8 +214,10 @@ class HestiaDatasetGenerator:
                 filename=sim_args.filename
             )
         elif 'molecu' in sim_args.data_type:
-            self.sim_df = molecular_similarity(
-                df_query=self.data, field_name=sim_args.field_name,
+            sim_df = molecular_similarity(
+                df_query=self.data,
+                df_target=sim_args.target_df,
+                field_name=sim_args.field_name,
                 sim_function=sim_args.sim_function,
                 fingerprint=sim_args.fingerprint,
                 bits=sim_args.bits, radius=sim_args.radius,
@@ -218,14 +227,16 @@ class HestiaDatasetGenerator:
                 filename=sim_args.filename
             )
         elif 'embedding' in sim_args.data_type:
-            self.sim_df = embedding_similarity(
+            sim_df = embedding_similarity(
                 query_embds=sim_args.query_embds,
+                df_target=sim_args.target_df,
                 sim_function=sim_args.sim_function,
                 threads=sim_args.threads, threshold=sim_args.min_threshold,
                 save_alignment=sim_args.save_alignment,
                 filename=sim_args.filename
             )
         print('Similarity successfully calculated!')
+        return sim_df
 
     def load_similarity(self, output_path: str):
         """Load similarity calculation from file.
@@ -397,31 +408,41 @@ class HestiaDatasetGenerator:
                 )
             return ds
 
-    @staticmethod
-    def calculate_augood(results: dict, metric: str) -> float:
-        """Calculate Area between the similarity-performance
-        curve (out-of-distribution) and the in-distribution performance.
+    def calculate_augood(
+        self, results: dict,
+        target_df: pd.DataFrame, target_field_name: Optional[str]
+    ) -> Tuple[np.ndarray, float]:
+        t_sim_args = self.sim_args
+        target_df[t_sim_args.field_name] = target_df[target_field_name]
+        t_sim_args.target_df = target_df
+        t_sim_df = self.calculate_similarity(t_sim_args)
+        bins, values, weights = [], [], []
 
-        :param results: Dictionary with key the partition (either threshold
-        value or `random`) and value another dictionary with key the metric name
-        and value the metric value.
-        :type results: dict
-        :param metric: Name of the metric for which the AUSPC is going to be
-        calculated
-        :type metric: str
-        :return: AUSPC value
-        :rtype: float
-        """
-        x, y = [], []
         for key, value in results.items():
             if key == 'random':
                 continue
-            x.append(float(key))
-            y.append(float(value[metric]))
-        idxs = np.argsort(x)
-        x, y = np.array(x), np.array(y)
-        min_x, max_x = np.min(x), np.max(x)
-        return auc(x[idxs], y[idxs]) / (max_x - min_x)
+            bins.append(float(key))
+            values.append(float(value))
+
+        bins, values = np.array(bins), np.array(values)
+        rows = []
+        for index in range(len(t_sim_df)):
+            i = t_sim_df[t_sim_df['query'] == index].copy()
+            rows.append(i['metric'].max())
+
+        rows = np.array(rows)
+        for idx, bin in enumerate(bins):
+            if idx == 0:
+                counts = (rows <= bin).sum()
+            else:
+                counts = ((rows > bins[idx - 1]) * (rows <= bin)).sum()
+            weights.append(counts)
+
+        weights = np.array(weights)
+        weights = weights / weights.sum()
+        good_curve = weights * values
+        au_good = np.dot(weights, values)
+        return good_curve, au_good
 
     @staticmethod
     def plot_good(results: dict, metric: str):
