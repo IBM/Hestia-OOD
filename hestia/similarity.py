@@ -680,11 +680,12 @@ def sequence_similarity_peptides(
                         dbtype, db_target_file, '-v', '1',
                         f'{tmp_dir}/db_target'])
 
-        subprocess.run(['mmseqs', 'search',  f'{tmp_dir}/db_query',
+        subprocess.run(['mmseqs', 'search', f'{tmp_dir}/db_query',
                         f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
                         f'{tmp_dir}/tmp', '--alignment-mode', '3',
                         '--seq-id-mode', denominator, '--search-type', '1',
-                        '--prefilter-mode', '2', '-s', '2', '-v', mmseqs_v,
+                        '--prefilter-mode', '2', '-s', '2',
+                        '-v', str(mmseqs_v),
                         '--threads', str(threads), '--mask', '0',
                         '--comp-bias-corr', '0',
                         '-e', '1e7'])
@@ -741,7 +742,8 @@ def sequence_similarity_peptides(
         medium_simdf = pd.DataFrame()
     if len(small_df_query) > 0:
         small_simdf = _small_alignment(
-            df_query=small_df_query, df_target=df_target, field_name=field_name
+            df_query=small_df_query, df_target=df_target, field_name=field_name,
+            denominator=denominator
         )
     else:
         small_simdf = pd.DataFrame()
