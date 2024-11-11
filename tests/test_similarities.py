@@ -1,6 +1,5 @@
-from hestia.similarity import (sequence_similarity, molecular_similarity,
-                               embedding_similarity,
-                               protein_structure_similarity, sim_df2mtx)
+from hestia.similarity import (molecular_similarity,
+                               embedding_similarity, sim_df2mtx)
 import numpy as np
 import pandas as pd
 
