@@ -304,27 +304,61 @@ class HestiaDatasetGenerator:
         random_state: Optional[int] = 42,
         n_partitions: Optional[int] = None
     ):
-        """_summary_
+        """
+        Calculates multiple partitions of a dataset for training, validation, and testing based on sequence similarity.
+        Supports two partitioning algorithms: `ccpart` and `graph_part`. Additionally, it computes partitions for 
+        different similarity thresholds and random partitions.
 
-        :param sim_args: _description_, defaults to None
+        :param sim_args: Object containing the similarity parameters for partitioning. This includes options for 
+                        calculating sequence similarity, such as the alignment method and similarity threshold.
+                        Defaults to None.
         :type sim_args: Optional[SimilarityArguments], optional
-        :param label_name: _description_, defaults to None
+        :param sim_df: Precomputed similarity DataFrame. If None, the similarity will be calculated using `sim_args`.
+        :type sim_df: Optional[pd.DataFrame], optional
+        :param label_name: The name of the label column for the dataset. Defaults to None.
         :type label_name: Optional[str], optional
-        :param min_threshold: _description_, defaults to 0.
+        :param min_threshold: The minimum similarity threshold to start partitioning. Defaults to 0.0.
         :type min_threshold: Optional[float], optional
-        :param threshold_step: _description_, defaults to 0.05
+        :param threshold_step: The step size for varying the similarity threshold during partitioning. Defaults to 0.05.
         :type threshold_step: Optional[float], optional
-        :param test_size: _description_, defaults to 0.2
+        :param test_size: The proportion of the dataset to allocate to the test set. Defaults to 0.2.
         :type test_size: Optional[float], optional
-        :param valid_size: _description_, defaults to 0.1
+        :param valid_size: The proportion of the training set to allocate to the validation set. Defaults to 0.1.
         :type valid_size: Optional[float], optional
-        :param partition_algorithm: _description_, defaults to 'ccpart'
+        :param partition_algorithm: The partitioning algorithm to use. Options are:
+                                - `'ccpart'`: Community detection partitioning algorithm.
+                                - `'graph_part'`: Graph-based partitioning.
+                                Defaults to `'ccpart'`.
         :type partition_algorithm: Optional[str], optional
-        :param random_state: _description_, defaults to 42
+        :param random_state: The random seed for reproducibility. Defaults to 42.
         :type random_state: Optional[int], optional
-        :param n_partitions: _description_, defaults to None
+        :param n_partitions: The number of partitions to create when using `graph_part`. Defaults to None.
         :type n_partitions: Optional[int], optional
-        :raises ValueError: _description_
+        :raises ValueError: If an unsupported partition algorithm is specified.
+        :return: A dictionary containing the partitions for each threshold. The dictionary has keys:
+                - `train`: DataFrame for the training set.
+                - `valid`: DataFrame for the validation set.
+                - `test`: DataFrame for the test set.
+                - `clusters`: The clusters formed by the partitioning algorithm.
+                - For random partitions, the key `'random'` will contain the train, valid, and test sets.
+        :rtype: dict
+
+        :example:
+        # Example of partitioning with a similarity threshold of 0.3 and a test size of 0.2
+        partitions = calculate_partitions(
+            sim_args=similarity_args,
+            label_name='Y',
+            min_threshold=0.2,
+            threshold_step=0.05,
+            test_size=0.2,
+            partition_algorithm='ccpart',
+            random_state=42
+        )
+
+        # Accessing the partitions for a specific threshold
+        train_set = partitions[0.3]['train']
+        valid_set = partitions[0.3]['valid']
+        test_set = partitions[0.3]['test']
         """
         self.metadata = {
             'partition_algorithm': {
