@@ -209,7 +209,7 @@ import pandas as pd
 
 df = pd.read_csv('example.csv')
 sim_df = sequence_similarity_mmseqs(df, field_name='sequence')
-train, test = cc_part(df, threshold=0.3, test_size=0.2)
+train, test = cc_part(df, threshold=0.3, test_size=0.2, sim_df=sim_df)
 
 train_df = df.iloc[train, :]
 test_df = df.iloc[test, :]
