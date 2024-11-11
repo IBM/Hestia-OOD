@@ -419,6 +419,170 @@ def protein_structure_similarity(
     return df
 
 
+def sequence_similarity_peptides(
+    df_query: pd.DataFrame,
+    df_target: Optional[pd.DataFrame] = None,
+    field_name: Optional[str] = 'sequence',
+    denominator: Optional[str] = 'shortest',
+    threads: Optional[int] = cpu_count(),
+    threshold: Optional[float] = 0.0,
+    verbose: Optional[int] = 0,
+    save_alignment: Optional[bool] = False,
+    filename: Optional[int] = None
+) -> pd.DataFrame:
+
+    if shutil.which('mmseqs') is None:
+        raise RuntimeError(
+            "MMSeqs2 not found. Please install following the instructions in:",
+            "https://github.com/IBM/Hestia-OOD#installation"
+        )
+    from hestia.utils.file_format import _write_fasta
+
+    def _small_alignment(df_query, df_target, field_name, denominator) -> pd.DataFrame:
+        proto_df = []
+        for name, seq in zip(df_query.index.tolist(), df_query[field_name]):
+            for name2, seq2 in zip(df_target.index.tolist(), df_target[field_name]):
+                if seq in seq2:
+                    if denominator == '0':
+                        metric = 1.0
+                    elif denominator == '1':
+                        metric = 1.0,
+                    elif denominator == '2':
+                        metric = len(seq) / len(seq2)
+                    proto_df.append({
+                        'query': name,
+                        'target': name2,
+                        'metric': metric
+                    })
+        return pd.DataFrame(proto_df)
+
+    def _normal_alignment(df_query, df_target, tmp_dir,
+                          field_name, dbtype, denominator,
+                          mmseqs_v, threads) -> pd.DataFrame:
+        db_query_file = os.path.join(tmp_dir, 'db_query.fasta')
+        db_target_file = os.path.join(tmp_dir, 'db_target.fasta')
+        _write_fasta(df_query[field_name].tolist(), df_query.index.tolist(),
+                     db_query_file)
+        _write_fasta(df_target[field_name].tolist(), df_target.index.tolist(),
+                     db_target_file)
+
+        subprocess.run(['mmseqs', 'createdb', '--dbtype',
+                        dbtype, db_query_file, '-v', '1',
+                        f'{tmp_dir}/db_query'])
+        subprocess.run(['mmseqs', 'createdb', '--dbtype',
+                        dbtype, db_target_file, '-v', '1',
+                        f'{tmp_dir}/db_target'])
+
+        subprocess.run(['mmseqs', 'search',  f'{tmp_dir}/db_query',
+                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+                        f'{tmp_dir}/tmp', '--alignment-mode', '3',
+                        '--seq-id-mode', denominator, '--search-type', '1',
+                        '--prefilter-mode', '2', '-s', '7.5', '-v', mmseqs_v,
+                        '--threads', str(threads)])
+
+        file = os.path.join(tmp_dir, 'alignments.tab')
+        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/db_query',
+                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+                        '--format-mode', '4', '--threads', str(threads),
+                        file, '-v', '1'])
+
+        df = pd.read_csv(file, sep='\t')
+        return df
+
+    def _medium_alignment(df_query, df_target, tmp_dir,
+                          field_name, dbtype, denominator,
+                          mmseqs_v, threads):
+        db_query_file = os.path.join(tmp_dir, 'db_query.fasta')
+        db_target_file = os.path.join(tmp_dir, 'db_target.fasta')
+        _write_fasta(df_query[field_name].tolist(), df_query.index.tolist(),
+                     db_query_file)
+        _write_fasta(df_target[field_name].tolist(), df_target.index.tolist(),
+                     db_target_file)
+
+        subprocess.run(['mmseqs', 'createdb', '--dbtype',
+                        dbtype, db_query_file, '-v', '1',
+                        f'{tmp_dir}/db_query'])
+        subprocess.run(['mmseqs', 'createdb', '--dbtype',
+                        dbtype, db_target_file, '-v', '1',
+                        f'{tmp_dir}/db_target'])
+
+        subprocess.run(['mmseqs', 'search',  f'{tmp_dir}/db_query',
+                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+                        f'{tmp_dir}/tmp', '--alignment-mode', '3',
+                        '--seq-id-mode', denominator, '--search-type', '1',
+                        '--prefilter-mode', '2', '-s', '2', '-v', mmseqs_v,
+                        '--threads', str(threads), '--mask', '0',
+                        '--comp-bias-corr', '0',
+                        '-e', '1e7'])
+
+        file = os.path.join(tmp_dir, 'alignments.tab')
+        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/db_query',
+                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+                        '--format-mode', '4', '--threads', str(threads),
+                        file, '-v', '1'])
+
+        df = pd.read_csv(file, sep='\t')
+        return df
+
+    DENOMINATOR_DICT = {'n_aligned': '0', 'shortest': '1', 'longest': '2'}
+    tmp_dir = f'hestia_tmp_{time.time()}'
+    if os.path.isdir(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    os.mkdir(tmp_dir)
+
+    df_query['seq_len'] = df_query[field_name].map(len)
+    normal_df_query = df_query[df_query['seq_len'] > 20]
+    medium_df_query = df_query[(df_query['seq_len'] > 8) &
+                               (df_query['seq_len'] <= 20)]
+    small_df_query = df_query[df_query['seq_len'] <= 8]
+    dbtype = '1'
+    denominator = DENOMINATOR_DICT[denominator]
+
+    if verbose > 2:
+        mmseqs_v = 3
+    else:
+        mmseqs_v = verbose
+
+    if verbose > 0:
+        print('Calculating pairwise alignments using MMSeqs2 algorithm',
+                'with `peptide` mode...')
+
+    if len(normal_df_query) > 0:
+        normal_simdf = _normal_alignment(
+            df_query=normal_df_query, df_target=df_target, tmp_dir=tmp_dir,
+            field_name=field_name, dbtype=dbtype, denominator=denominator,
+            mmseqs_v=mmseqs_v, threads=threads
+        )
+    else:
+        normal_simdf = pd.DataFrame()
+    if len(medium_df_query) > 0:
+        medium_simdf = _medium_alignment(
+            df_query=medium_df_query, df_target=df_target, tmp_dir=tmp_dir,
+            field_name=field_name, dbtype=dbtype, denominator=denominator,
+            mmseqs_v=mmseqs_v, threads=threads
+        )
+    else:
+        medium_simdf = pd.DataFrame()
+    if len(small_df_query) > 0:
+        small_simdf = _small_alignment(
+            df_query=small_df_query, df_target=df_target, field_name=field_name
+        )
+    else:
+        small_simdf = pd.DataFrame()
+
+    df = pd.concat([normal_simdf, medium_simdf, small_simdf])
+    df['metric'] = df['fident']
+    df = df[df['metric'] > threshold]
+    df = df[['query', 'target', 'metric']]
+    if save_alignment:
+        if filename is None:
+            filename = time.time()
+        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+
+    shutil.rmtree(tmp_dir)
+    return df
+
+
 def sequence_similarity_mmseqs(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
@@ -431,7 +595,7 @@ def sequence_similarity_mmseqs(
     verbose: int = 0,
     save_alignment: bool = False,
     filename: str = None
-) -> Union[pd.DataFrame, np.ndarray]:
+) -> pd.DataFrame:
 
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
@@ -536,7 +700,7 @@ def sequence_similarity_needle(
     verbose: int = 0,
     save_alignment: bool = False,
     filename: str = None
-):
+) -> pd.DataFrame:
     """_summary_
 
     :param df_query: _description_
