@@ -705,6 +705,8 @@ def sequence_similarity_peptides(
     os.mkdir(tmp_dir)
 
     df_query['seq_len'] = df_query[field_name].map(len)
+    if df_target is None:
+        df_target = df_query
     normal_df_query = df_query[df_query['seq_len'] > 20]
     medium_df_query = df_query[(df_query['seq_len'] > 8) &
                                (df_query['seq_len'] <= 20)]
