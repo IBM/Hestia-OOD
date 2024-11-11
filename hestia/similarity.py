@@ -51,390 +51,389 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     return mtx.maximum(mtx.transpose())
 
 
-def calculate_similarity(
-    df_query: Union[pd.DataFrame, np.ndarray],
-    df_target: Optional[Union[pd.DataFrame, np.ndarray]] = None,
-    data_type: str = 'protein',
-    similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
-    field_name: str = 'sequence',
-    threshold: float = 0.,
-    threads: int = cpu_count(),
-    verbose: int = 0,
-    save_alignment: bool = False,
-    filename: str = None,
-    distance: str = 'tanimoto',
-    bits: int = 1024,
-    radius: int = 2,
-    denominator: str = 'shortest',
-    representation: str = '3di+aa',
-    config: dict = None,
-    **kwargs
-) -> pd.DataFrame:
-    """Calculate similarity between entities in
-    `df_query` and `df_target`. Entities can be
-    biological sequences (nucleic acids or proteins),
-    protein structures or small molecules (in SMILES format).
+# def calculate_similarity(
+#     df_query: Union[pd.DataFrame, np.ndarray],
+#     df_target: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+#     data_type: str = 'protein',
+#     similarity_metric: Union[str, Callable] = 'mmseqs+prefilter',
+#     field_name: str = 'sequence',
+#     threshold: float = 0.,
+#     threads: int = cpu_count(),
+#     verbose: int = 0,
+#     save_alignment: bool = False,
+#     filename: str = None,
+#     distance: str = 'tanimoto',
+#     bits: int = 1024,
+#     radius: int = 2,
+#     denominator: str = 'shortest',
+#     representation: str = '3di+aa',
+#     config: dict = None,
+#     **kwargs
+# ) -> pd.DataFrame:
+#     """Calculate similarity between entities in
+#     `df_query` and `df_target`. Entities can be
+#     biological sequences (nucleic acids or proteins),
+#     protein structures or small molecules (in SMILES format).
 
-    :param df_query: DataFrame with query entities to calculate similarities
-    :type df_query: pd.DataFrame
-    :param df_target: DataFrame with target entities to calculate
-    similarities. If not specified, the `df_query` will be used as `df_target`
-    as well, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param data_type: Biochemical data_type to which the data belongs.
-    Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
-    'protein'
-    :type data_type: Union[str, Callable], optional
-    :param similarity_metric: Similarity function to use.
-    Options:
-        - `protein`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), `needle` (global
-           alignment), or `foldseek` (structural alignment).
-        - `DNA` or `RNA`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), or `needle`
-          (global alignment).
-        - `small molecule`: `ecfp` (ECFP extended connectivity
-        fingerprints), `map4` (MAP4 chiral fingerprint), or `maccs`
-        - It can also be a custom made function. It has to fulfill three requirements
-          1) be symmetrical, 2) be normalised in the interval [0, 1], 3) f(x_i, x_i) = 1.
-          It should support all values within the SimilarityArguments object. If
-          it requires additional inputs they can be added to this wrapper function as
-          key=value options at the end.
-    Defaults to `mmseqs+prefilter`.
-    :type similarity_metric: str, optional
-    :param field_name: Name of the field with the entity information
-    (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
-    :type field_name: str, optional
-    :param threshold: Similarity value above which entities will be
-    considered similar, defaults to 0.3
-    :type threshold: float, optional
-    :param threads: Number of threads available for parallalelization,
-    defaults to cpu_count()
-    :type threads: int, optional
-    :param verbose: How much information will be displayed.
-    Options:
-        - 0: Errors,
-        - 1: Warnings,
-        - 2: All
-    Defaults to 0
-    :type verbose: int, optional
-    :param save_alignment: Save file with similarity calculations,
-    defaults to False
-    :type save_alignment: bool, optional
-    :param filename: Filename where to save the similarity calculations
-    requires `save_alignment` set to `True`, defaults to None
-    :type filename: str, optional
-    :param distance: Distance metrics for small molecule comparison.
-    Currently, it is restricted to Tanimoto distance will
-    be extended in future patches; if interested in a specific
-    metric please let us know.
-    Options:
-        - `tanimoto`: Calculates the Tanimoto distance
-    Defaults to 'tanimoto'.
-    :type distance: str, optional
-    :param bits: Number of bits for ECFP, defaults to 1024
-    :type bits: int, optional
-    :param radius: Radius for ECFP calculation, defaults to 2
-    :type radius: int, optional
-    :param denominator: Denominator for sequence alignments, refers
-    to which lenght to be used as denominator for calculating
-    the sequence identity.
-    Options:
-        - `shortest`: The shortest sequence of the pair
-        - `longest`: The longest sequence of the pair 
-                    (recomended only for peptides)
-        - `n_aligned`: Full alignment length 
-                      (recomended with global alignment)
-    Defaults to 'shortest'
-    :type denominator: str, optional
-    :param representation: Representation for protein structures
-    as interpreted by `Foldseek`.
-    Options:
-        - `3di`: 3D interactions vocabulary.
-        - `3di+aa`: 3D interactions vocabulary and amino
-                    acid sequence.
-        - `TM`: global structural alignment (slow)
-    Defaults to '3di+aa'
-    :type representation: str, optional
-    :param config: Dictionary with options for EMBOSS needle module
-    Default values:
-        - "gapopen": 10,
-        - "gapextend": 0.5,
-        - "endweight": True,
-        - "endopen": 10,
-        - "endextend": 0.5,
-        - "matrix": "EBLOSUM62"
-    :type config: dict, optional
-    :raises NotImplementedError: Biochemical data_type is not supported
-                                 see `data_type`.
-    :raises NotImplementedError: Similarity metric is not supported
-                                 see `similarity_algorithm`
-    :return: DataFrame with similarities (`metric`) between
-    `query` and `target`.
-    `query` and `target` are named as the indexes obtained from the 
-    `pd.unique` function on the corresponding input DataFrames.
-    :rtype: pd.DataFrame
-    """
-    mssg = f'Alignment method: {similarity_metric} '
-    mssg += f'not implemented for data_type: {data_type}'
-    mssg2 = f'data_type: {data_type} not supported'
+#     :param df_query: DataFrame with query entities to calculate similarities
+#     :type df_query: pd.DataFrame
+#     :param df_target: DataFrame with target entities to calculate
+#     similarities. If not specified, the `df_query` will be used as `df_target`
+#     as well, defaults to None
+#     :type df_target: pd.DataFrame, optional
+#     :param data_type: Biochemical data_type to which the data belongs.
+#     Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
+#     'protein'
+#     :type data_type: Union[str, Callable], optional
+#     :param similarity_metric: Similarity function to use.
+#     Options:
+#         - `protein`: `mmseqs` (local alignment),
+#           `mmseqs+prefilter` (fast local alignment), `needle` (global
+#            alignment), or `foldseek` (structural alignment).
+#         - `DNA` or `RNA`: `mmseqs` (local alignment),
+#           `mmseqs+prefilter` (fast local alignment), or `needle`
+#           (global alignment).
+#         - `small molecule`: `ecfp` (ECFP extended connectivity
+#         fingerprints), `map4` (MAP4 chiral fingerprint), or `maccs`
+#         - It can also be a custom made function. It has to fulfill three requirements
+#           1) be symmetrical, 2) be normalised in the interval [0, 1], 3) f(x_i, x_i) = 1.
+#           It should support all values within the SimilarityArguments object. If
+#           it requires additional inputs they can be added to this wrapper function as
+#           key=value options at the end.
+#     Defaults to `mmseqs+prefilter`.
+#     :type similarity_metric: str, optional
+#     :param field_name: Name of the field with the entity information
+#     (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
+#     :type field_name: str, optional
+#     :param threshold: Similarity value above which entities will be
+#     considered similar, defaults to 0.3
+#     :type threshold: float, optional
+#     :param threads: Number of threads available for parallalelization,
+#     defaults to cpu_count()
+#     :type threads: int, optional
+#     :param verbose: How much information will be displayed.
+#     Options:
+#         - 0: Errors,
+#         - 1: Warnings,
+#         - 2: All
+#     Defaults to 0
+#     :type verbose: int, optional
+#     :param save_alignment: Save file with similarity calculations,
+#     defaults to False
+#     :type save_alignment: bool, optional
+#     :param filename: Filename where to save the similarity calculations
+#     requires `save_alignment` set to `True`, defaults to None
+#     :type filename: str, optional
+#     :param distance: Distance metrics for small molecule comparison.
+#     Currently, it is restricted to Tanimoto distance will
+#     be extended in future patches; if interested in a specific
+#     metric please let us know.
+#     Options:
+#         - `tanimoto`: Calculates the Tanimoto distance
+#     Defaults to 'tanimoto'.
+#     :type distance: str, optional
+#     :param bits: Number of bits for ECFP, defaults to 1024
+#     :type bits: int, optional
+#     :param radius: Radius for ECFP calculation, defaults to 2
+#     :type radius: int, optional
+#     :param denominator: Denominator for sequence alignments, refers
+#     to which lenght to be used as denominator for calculating
+#     the sequence identity.
+#     Options:
+#         - `shortest`: The shortest sequence of the pair
+#         - `longest`: The longest sequence of the pair 
+#                     (recomended only for peptides)
+#         - `n_aligned`: Full alignment length 
+#                       (recomended with global alignment)
+#     Defaults to 'shortest'
+#     :type denominator: str, optional
+#     :param representation: Representation for protein structures
+#     as interpreted by `Foldseek`.
+#     Options:
+#         - `3di`: 3D interactions vocabulary.
+#         - `3di+aa`: 3D interactions vocabulary and amino
+#                     acid sequence.
+#         - `TM`: global structural alignment (slow)
+#     Defaults to '3di+aa'
+#     :type representation: str, optional
+#     :param config: Dictionary with options for EMBOSS needle module
+#     Default values:
+#         - "gapopen": 10,
+#         - "gapextend": 0.5,
+#         - "endweight": True,
+#         - "endopen": 10,
+#         - "endextend": 0.5,
+#         - "matrix": "EBLOSUM62"
+#     :type config: dict, optional
+#     :raises NotImplementedError: Biochemical data_type is not supported
+#                                  see `data_type`.
+#     :raises NotImplementedError: Similarity metric is not supported
+#                                  see `similarity_algorithm`
+#     :return: DataFrame with similarities (`metric`) between
+#     `query` and `target`.
+#     `query` and `target` are named as the indexes obtained from the 
+#     `pd.unique` function on the corresponding input DataFrames.
+#     :rtype: pd.DataFrame
+#     """
+#     mssg = f'Alignment method: {similarity_metric} '
+#     mssg += f'not implemented for data_type: {data_type}'
+#     mssg2 = f'data_type: {data_type} not supported'
 
-    if isinstance(similarity_metric, Callable):
-        sim_df = similarity_metric(
-            df_query=df_query,
-            df_target=df_target,
-            field_name=field_name,
-            threshold=threshold,
-            threads=threads,
-            prefilter=False,
-            denominator=denominator,
-            is_nucleotide=False,
-            verbose=verbose,
-            save_alignment=save_alignment,
-            filename=filename,
-            **kwargs
-        )
-    elif similarity_metric == 'embedding':
-        if 'to_df' not in kwargs:
-            kwargs['to_df'] = False
-        sim_df = _embedding_distance(
-            query_embds=df_query, target_embds=df_target,
-            distance=distance, threads=threads,
-            save_alignment=save_alignment, filename=filename,
-            to_df=kwargs['to_df']
-        )
-    else:
-        if 'protein' in data_type:
-            if 'mmseqs' in similarity_metric:
-                sim_df = _mmseqs2_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threshold=threshold,
-                    threads=threads,
-                    prefilter='prefilter' in similarity_metric,
-                    denominator=denominator,
-                    is_nucleotide=False,
-                    verbose=verbose,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            elif similarity_metric == 'needle':
-                sim_df = _needle_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threshold=threshold,
-                    threads=threads,
-                    is_nucleotide=False,
-                    verbose=verbose,
-                    config=config,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            elif similarity_metric == 'foldseek':
-                sim_df = _foldseek_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threshold=threshold,
-                    prefilter=False,
-                    denominator=denominator,
-                    representation=representation,
-                    threads=threads,
-                    verbose=verbose,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            else:
-                mssg = f'Alignment method: {similarity_metric} '
-                mssg += f'not implemented for data_type: {data_type}'
-                raise NotImplementedError(mssg)
-        elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
-            if 'mmseqs' in similarity_metric:
-                sim_df = _mmseqs2_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threshold=threshold,
-                    threads=threads,
-                    prefilter='prefilter' in similarity_metric,
-                    denominator=denominator,
-                    is_nucleotide=True,
-                    verbose=verbose,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            elif similarity_metric == 'needle':
-                sim_df = _needle_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threshold=threshold,
-                    threads=threads,
-                    is_nucleotide=True,
-                    verbose=verbose,
-                    config=config,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            else:
-                mssg = f'Alignment method: {similarity_metric} '
-                mssg += f'not implemented for data_type: {data_type}'
-                raise NotImplementedError(mssg)
-        elif (data_type.lower() == 'smiles' or
-              ('molecule' in data_type.lower() and
-               'small' in data_type.lower())):
-            if similarity_metric == 'fingerprint':
-                print('Warning: Using `ecfp` fingerprint by default')
-                similarity_metric = 'ecfp'
-            if similarity_metric == 'scaffold':
-                sim_df = _scaffold_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    field_name=field_name,
-                    threads=threads,
-                    verbose=verbose,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            elif similarity_metric.lower() in SUPPORTED_FPS:
-                sim_df = _fingerprint_alignment(
-                    df_query=df_query,
-                    df_target=df_target,
-                    threshold=threshold,
-                    field_name=field_name,
-                    distance=distance,
-                    threads=threads,
-                    verbose=verbose,
-                    bits=bits,
-                    radius=radius,
-                    fingerprint=similarity_metric,
-                    save_alignment=save_alignment,
-                    filename=filename
-                )
-            else:
-                mssg = f'Alignment method: {similarity_metric} '
-                mssg += f'not implemented for data_type: {data_type}.'
-                mssg += "Please use one of the following "
-                mssg += f"{', '.join(SUPPORTED_FPS)}"
-                raise NotImplementedError(mssg)
+#     if isinstance(similarity_metric, Callable):
+#         sim_df = similarity_metric(
+#             df_query=df_query,
+#             df_target=df_target,
+#             field_name=field_name,
+#             threshold=threshold,
+#             threads=threads,
+#             prefilter=False,
+#             denominator=denominator,
+#             is_nucleotide=False,
+#             verbose=verbose,
+#             save_alignment=save_alignment,
+#             filename=filename,
+#             **kwargs
+#         )
+#     elif similarity_metric == 'embedding':
+#         if 'to_df' not in kwargs:
+#             kwargs['to_df'] = False
+#         sim_df = _embedding_distance(
+#             query_embds=df_query, target_embds=df_target,
+#             distance=distance, threads=threads,
+#             save_alignment=save_alignment, filename=filename,
+#             to_df=kwargs['to_df']
+#         )
+#     else:
+#         if 'protein' in data_type:
+#             if 'mmseqs' in similarity_metric:
+#                 sim_df = _mmseqs2_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threshold=threshold,
+#                     threads=threads,
+#                     prefilter='prefilter' in similarity_metric,
+#                     denominator=denominator,
+#                     is_nucleotide=False,
+#                     verbose=verbose,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             elif similarity_metric == 'needle':
+#                 sim_df = _needle_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threshold=threshold,
+#                     threads=threads,
+#                     is_nucleotide=False,
+#                     verbose=verbose,
+#                     config=config,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             elif similarity_metric == 'foldseek':
+#                 sim_df = _foldseek_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threshold=threshold,
+#                     prefilter=False,
+#                     denominator=denominator,
+#                     representation=representation,
+#                     threads=threads,
+#                     verbose=verbose,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             else:
+#                 mssg = f'Alignment method: {similarity_metric} '
+#                 mssg += f'not implemented for data_type: {data_type}'
+#                 raise NotImplementedError(mssg)
+#         elif data_type.upper() == 'DNA' or data_type.upper() == 'RNA':
+#             if 'mmseqs' in similarity_metric:
+#                 sim_df = _mmseqs2_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threshold=threshold,
+#                     threads=threads,
+#                     prefilter='prefilter' in similarity_metric,
+#                     denominator=denominator,
+#                     is_nucleotide=True,
+#                     verbose=verbose,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             elif similarity_metric == 'needle':
+#                 sim_df = _needle_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threshold=threshold,
+#                     threads=threads,
+#                     is_nucleotide=True,
+#                     verbose=verbose,
+#                     config=config,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             else:
+#                 mssg = f'Alignment method: {similarity_metric} '
+#                 mssg += f'not implemented for data_type: {data_type}'
+#                 raise NotImplementedError(mssg)
+#         elif (data_type.lower() == 'smiles' or
+#               ('molecule' in data_type.lower() and
+#                'small' in data_type.lower())):
+#             if similarity_metric == 'fingerprint':
+#                 print('Warning: Using `ecfp` fingerprint by default')
+#                 similarity_metric = 'ecfp'
+#             if similarity_metric == 'scaffold':
+#                 sim_df = _scaffold_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     field_name=field_name,
+#                     threads=threads,
+#                     verbose=verbose,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             elif similarity_metric.lower() in SUPPORTED_FPS:
+#                 sim_df = _fingerprint_alignment(
+#                     df_query=df_query,
+#                     df_target=df_target,
+#                     threshold=threshold,
+#                     field_name=field_name,
+#                     distance=distance,
+#                     threads=threads,
+#                     verbose=verbose,
+#                     bits=bits,
+#                     radius=radius,
+#                     fingerprint=similarity_metric,
+#                     save_alignment=save_alignment,
+#                     filename=filename
+#                 )
+#             else:
+#                 mssg = f'Alignment method: {similarity_metric} '
+#                 mssg += f'not implemented for data_type: {data_type}.'
+#                 mssg += "Please use one of the following "
+#                 mssg += f"{', '.join(SUPPORTED_FPS)}"
+#                 raise NotImplementedError(mssg)
 
-        else:
-            raise NotImplementedError(mssg2)
-    return sim_df
-
-
-def _scaffold_alignment(
-    df_query: pd.DataFrame,
-    df_target: pd.DataFrame = None,
-    field_name: str = 'smiles',
-    threads: int = cpu_count(),
-    verbose: int = 0,
-    save_alignment: bool = False,
-    filename: str = None
-) -> Union[pd.DataFrame, np.ndarray]:
-    """_summary_
-
-    :param df_query: _description_
-    :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param field_name: _description_, defaults to 'smiles'
-    :type field_name: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param save_alignment: _description_, defaults to False
-    :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
-    :type filename: str, optional
-    :raises ImportError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: Union[pd.DataFrame, np.ndarray]
-    """
-    try:
-        from rdkit import Chem
-        from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
-    except ModuleNotFoundError:
-        raise ImportError("This function requires RDKit to be installed.")
-    from concurrent.futures import ThreadPoolExecutor
-
-    if (field_name not in df_query.columns):
-        raise ValueError(f'{field_name} not found in query DataFrame')
-    if df_target is not None and field_name not in df_target.columns:
-        raise ValueError(f'{field_name} not found in target DataFrame')
-
-    def _compute_distance(query_scaffold: str, target_scaffolds: List[str]):
-        distances = []
-        for target in target_scaffolds:
-            if target == query_scaffold:
-                distances.append(1)
-            else:
-                distances.append(0)
-        return distances
-
-    if df_target is None:
-        df_target = df_query
-
-    mols_query = [Chem.MolFromSmiles(smiles)
-                  for smiles in df_query[field_name]]
-    mols_target = [Chem.MolFromSmiles(smiles)
-                   for smiles in df_target[field_name]]
-    scaffolds_query = [MurckoScaffoldSmiles(mol=mol, includeChirality=True)
-                       for mol in mols_query]
-    scaffolds_target = [MurckoScaffoldSmiles(mol=mol, includeChirality=True)
-                        for mol in mols_target]
-
-    jobs = []
-
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        for query_scafold in scaffolds_query:
-            job = executor.submit(_compute_distance, query_scafold,
-                                  scaffolds_target)
-            jobs.append(job)
-
-        if verbose > 1:
-            pbar = tqdm(jobs)
-        else:
-            pbar = jobs
-
-        proto_df = []
-        for idx, job in enumerate(pbar):
-            if job.exception() is not None:
-                raise RuntimeError(job.exception())
-            result = job.result()
-            entry = [{'query': idx, 'target': idx_target, 'metric': metric}
-                     for idx_target, metric in enumerate(result)]
-            proto_df.extend(entry)
-
-    df = pd.DataFrame(proto_df)
-    if save_alignment:
-        if filename is None:
-            filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
-    return df
+#         else:
+#             raise NotImplementedError(mssg2)
+#     return sim_df
 
 
-def _embedding_distance(
+# def _scaffold_alignment(
+#     df_query: pd.DataFrame,
+#     df_target: pd.DataFrame = None,
+#     field_name: str = 'smiles',
+#     threads: int = cpu_count(),
+#     verbose: int = 0,
+#     save_alignment: bool = False,
+#     filename: str = None
+# ) -> Union[pd.DataFrame, np.ndarray]:
+#     """_summary_
+
+#     :param df_query: _description_
+#     :type df_query: pd.DataFrame
+#     :param df_target: _description_, defaults to None
+#     :type df_target: pd.DataFrame, optional
+#     :param field_name: _description_, defaults to 'smiles'
+#     :type field_name: str, optional
+#     :param threads: _description_, defaults to cpu_count()
+#     :type threads: int, optional
+#     :param verbose: _description_, defaults to 0
+#     :type verbose: int, optional
+#     :param save_alignment: _description_, defaults to False
+#     :type save_alignment: bool, optional
+#     :param filename: _description_, defaults to None
+#     :type filename: str, optional
+#     :raises ImportError: _description_
+#     :raises ValueError: _description_
+#     :raises ValueError: _description_
+#     :raises RuntimeError: _description_
+#     :return: _description_
+#     :rtype: Union[pd.DataFrame, np.ndarray]
+#     """
+#     try:
+#         from rdkit import Chem
+#         from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
+#     except ModuleNotFoundError:
+#         raise ImportError("This function requires RDKit to be installed.")
+#     from concurrent.futures import ThreadPoolExecutor
+
+#     if (field_name not in df_query.columns):
+#         raise ValueError(f'{field_name} not found in query DataFrame')
+#     if df_target is not None and field_name not in df_target.columns:
+#         raise ValueError(f'{field_name} not found in target DataFrame')
+
+#     def _compute_distance(query_scaffold: str, target_scaffolds: List[str]):
+#         distances = []
+#         for target in target_scaffolds:
+#             if target == query_scaffold:
+#                 distances.append(1)
+#             else:
+#                 distances.append(0)
+#         return distances
+
+#     if df_target is None:
+#         df_target = df_query
+
+#     mols_query = [Chem.MolFromSmiles(smiles)
+#                   for smiles in df_query[field_name]]
+#     mols_target = [Chem.MolFromSmiles(smiles)
+#                    for smiles in df_target[field_name]]
+#     scaffolds_query = [MurckoScaffoldSmiles(mol=mol, includeChirality=True)
+#                        for mol in mols_query]
+#     scaffolds_target = [MurckoScaffoldSmiles(mol=mol, includeChirality=True)
+#                         for mol in mols_target]
+
+#     jobs = []
+
+#     with ThreadPoolExecutor(max_workers=threads) as executor:
+#         for query_scafold in scaffolds_query:
+#             job = executor.submit(_compute_distance, query_scafold,
+#                                   scaffolds_target)
+#             jobs.append(job)
+
+#         if verbose > 1:
+#             pbar = tqdm(jobs)
+#         else:
+#             pbar = jobs
+
+#         proto_df = []
+#         for idx, job in enumerate(pbar):
+#             if job.exception() is not None:
+#                 raise RuntimeError(job.exception())
+#             result = job.result()
+#             entry = [{'query': idx, 'target': idx_target, 'metric': metric}
+#                      for idx_target, metric in enumerate(result)]
+#             proto_df.extend(entry)
+
+#     df = pd.DataFrame(proto_df)
+#     if save_alignment:
+#         if filename is None:
+#             filename = time.time()
+#         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+#     return df
+
+
+def embedding_similarity(
     query_embds: np.ndarray,
     target_embds: Optional[np.ndarray] = None,
-    distance: Union[str, Callable] = 'cosine',
+    sim_function: Union[str, Callable] = 'cosine',
     threads: int = cpu_count(),
     threshold: float = 0.0,
     save_alignment: bool = False,
     filename: str = None,
-    to_df: bool = True,
     **kwargs
 ) -> pd.DataFrame:
     if target_embds is None:
         target_embds = query_embds
 
-    bulk_sim_metric = BULK_SIM_METRICS[distance]
+    bulk_sim_metric = BULK_SIM_METRICS[sim_function]
     chunk_size = threads * 1_000
     chunks_target = (len(target_embds) // chunk_size) + 1
     queries, targets, metrics = [], [], []
@@ -471,7 +470,7 @@ def _embedding_distance(
 
     df = pd.DataFrame({'query': queries, 'target': targets,
                        'metric': metrics})
-    if distance not in ['cosine-np']:
+    if sim_function not in ['cosine-np']:
         df.metric = df.metric.map(lambda x: 1 / (1 + x))
 
     df = df[df['metric'] > threshold]
@@ -482,23 +481,22 @@ def _embedding_distance(
     return df
 
 
-def _fingerprint_alignment(
+def molecular_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
-    threshold: float = 0.0,
     field_name: str = 'smiles',
-    distance: str = 'tanimoto',
-    threads: int = cpu_count(),
-    verbose: int = 0,
+    sim_function: str = 'tanimoto',
+    fingerprint: str = 'ecfp',
     bits: int = 1024,
     radius: int = 2,
+    threshold: float = 0.0,
+    threads: int = cpu_count(),
+    verbose: int = 0,
     save_alignment: bool = False,
-    fingerprint: str = 'ecfp', 
     filename: str = None,
     **kwargs
 ) -> pd.DataFrame:
 
-    from tqdm.contrib.concurrent import thread_map
     try:
         from rdkit import Chem
         from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
@@ -525,27 +523,29 @@ def _fingerprint_alignment(
 
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile)
-            if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
-                            'cosine']:
+            if sim_function in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
+                                'cosine']:
                 fp = fpgen.GetFingerprint(mol)
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
+
     elif fingerprint == 'maccs':
 
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile)
-            if distance in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
-                            'cosine']:
+            if sim_function in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
+                                'cosine']:
                 fp = rdMolDescriptors.GetMACCSKeysFingerprint(mol)
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
+
     elif fingerprint == 'mapc':
         try:
             from mapchiral.mapchiral import encode
         except ModuleNotFoundError:
-            raise ImportError('This fingerprint requires mapchiral to be installed.')
+            raise ImportError('This fingerprint requires mapchiral to be installed: `pip install mapchiral`')
 
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile, sanitize=True)
@@ -553,15 +553,14 @@ def _fingerprint_alignment(
                         n_permutations=bits, mapping=False)
             return fp
 
-
-        if distance != 'jaccard':
+        if sim_function != 'jaccard':
             raise ValueError('MAPc can only be used with `jaccard`.')
 
-    if distance in BULK_SIM_METRICS:
-        bulk_sim_metric = BULK_SIM_METRICS[distance]
+    if sim_function in BULK_SIM_METRICS:
+        bulk_sim_metric = BULK_SIM_METRICS[sim_function]
     else:
         raise NotImplementedError(
-            f'Distance metric: {distance} not implemented. ' +
+            f'Distance metric: {sim_function} not implemented. ' +
             f"Supported metrics: {', '.join(BULK_SIM_METRICS.keys())}"
         )
 
@@ -588,7 +587,7 @@ def _fingerprint_alignment(
 
     if verbose > 1:
         print(f'Calculating molecular similarities using {fingerprint}-{radius * 2}',
-              f'with {bits:,} bits and {distance} index...')\
+              f'with {bits:,} bits and {sim_function} index...')\
 
     query_mols = df_query[field_name].tolist()
     chunk_size = threads * 1_000
@@ -677,55 +676,21 @@ def _fingerprint_alignment(
     return df
 
 
-def _foldseek_alignment(
+def protein_structure_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'structure',
-    threshold: float = 0.0,
     prefilter: bool = True,
     denominator: str = 'shortest',
     representation: str = '3di+aa',
+    threshold: float = 0.0,
     threads: int = cpu_count(),
     verbose: int = 0,
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
 ) -> Union[pd.DataFrame, np.ndarray]:
-    """_summary_
-
-    :param df_query: _description_
-    :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param field_name: _description_, defaults to 'structure'
-    :type field_name: str, optional
-    :param threshold: _description_, defaults to 0.0
-    :type threshold: float, optional
-    :param prefilter: _description_, defaults to True
-    :type prefilter: bool, optional
-    :param denominator: _description_, defaults to 'shortest'
-    :type denominator: str, optional
-    :param representation: _description_, defaults to '3di+aa'
-    :type representation: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param save_alignment: _description_, defaults to False
-    :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
-    :type filename: str, optional
-    :raises ImportError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :return: _description_
-    :rtype: Union[pd.DataFrame, np.ndarray]
-    """
-    foldseek = os.path.join(os.path.dirname(__file__), '..',
-                            'bin', 'foldseek')
-    if os.path.exists(foldseek):
-        pass
-    elif shutil.which('foldseek') is None:
+    if shutil.which('foldseek') is None:
         mssg = "Foldseek not found. Please install following the instructions"
         mssg += " in: https://github.com/IBM/Hestia-OOD#installation"
         raise ImportError(mssg)
@@ -823,49 +788,20 @@ def _foldseek_alignment(
     return df
 
 
-def _mmseqs2_alignment(
+def sequence_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'sequence',
-    threshold: float = 0.0,
     prefilter: bool = True,
     denominator: str = 'shortest',
     threads: int = cpu_count(),
     is_nucleotide: bool = False,
+    threshold: float = 0.0,
     verbose: int = 0,
     save_alignment: bool = False,
     filename: str = None
 ) -> Union[pd.DataFrame, np.ndarray]:
-    """_summary_
 
-    :param df_query: _description_
-    :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param field_name: _description_, defaults to 'sequence'
-    :type field_name: str, optional
-    :param threshold: _description_, defaults to 0.0
-    :type threshold: float, optional
-    :param prefilter: _description_, defaults to True
-    :type prefilter: bool, optional
-    :param denominator: _description_, defaults to 'shortest'
-    :type denominator: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param is_nucleotide: _description_, defaults to False
-    :type is_nucleotide: bool, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param save_alignment: _description_, defaults to False
-    :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
-    :type filename: str, optional
-    :raises RuntimeError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :return: _description_
-    :rtype: Union[pd.DataFrame, np.ndarray]
-    """
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
             "MMSeqs2 not found. Please install following the instructions in:",
@@ -957,199 +893,199 @@ def _mmseqs2_alignment(
     return df
 
 
-def _needle_alignment(
-    df_query: pd.DataFrame,
-    df_target: pd.DataFrame = None,
-    field_name: str = 'sequence',
-    threshold: float = 0.0,
-    denominator: str = 'shortest',
-    threads: int = cpu_count(),
-    is_nucleotide: bool = False,
-    verbose: int = 0,
-    config: dict = None,
-    save_alignment: bool = False,
-    filename: str = None
-):
-    """_summary_
+# def _needle_alignment(
+#     df_query: pd.DataFrame,
+#     df_target: pd.DataFrame = None,
+#     field_name: str = 'sequence',
+#     threshold: float = 0.0,
+#     denominator: str = 'shortest',
+#     threads: int = cpu_count(),
+#     is_nucleotide: bool = False,
+#     verbose: int = 0,
+#     config: dict = None,
+#     save_alignment: bool = False,
+#     filename: str = None
+# ):
+#     """_summary_
 
-    :param df_query: _description_
-    :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
-    :type df_target: pd.DataFrame, optional
-    :param field_name: _description_, defaults to 'sequence'
-    :type field_name: str, optional
-    :param threshold: _description_, defaults to 0.0
-    :type threshold: float, optional
-    :param denominator: _description_, defaults to 'shortest'
-    :type denominator: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param is_nucleotide: _description_, defaults to False
-    :type is_nucleotide: bool, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param config: _description_, defaults to None
-    :type config: dict, optional
-    :param save_alignment: _description_, defaults to False
-    :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
-    :type filename: str, optional
-    :raises ImportError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: _type_
-    """
-    if shutil.which("needleall") is None:
-        raise ImportError("EMBOSS needleall not found. Please install by ",
-                          "running: `conda install emboss -c bioconda`")
-    from hestia.utils.file_format import _write_fasta_chunks
-    from concurrent.futures import ThreadPoolExecutor
+#     :param df_query: _description_
+#     :type df_query: pd.DataFrame
+#     :param df_target: _description_, defaults to None
+#     :type df_target: pd.DataFrame, optional
+#     :param field_name: _description_, defaults to 'sequence'
+#     :type field_name: str, optional
+#     :param threshold: _description_, defaults to 0.0
+#     :type threshold: float, optional
+#     :param denominator: _description_, defaults to 'shortest'
+#     :type denominator: str, optional
+#     :param threads: _description_, defaults to cpu_count()
+#     :type threads: int, optional
+#     :param is_nucleotide: _description_, defaults to False
+#     :type is_nucleotide: bool, optional
+#     :param verbose: _description_, defaults to 0
+#     :type verbose: int, optional
+#     :param config: _description_, defaults to None
+#     :type config: dict, optional
+#     :param save_alignment: _description_, defaults to False
+#     :type save_alignment: bool, optional
+#     :param filename: _description_, defaults to None
+#     :type filename: str, optional
+#     :raises ImportError: _description_
+#     :raises ValueError: _description_
+#     :raises ValueError: _description_
+#     :raises RuntimeError: _description_
+#     :return: _description_
+#     :rtype: _type_
+#     """
+#     if shutil.which("needleall") is None:
+#         raise ImportError("EMBOSS needleall not found. Please install by ",
+#                           "running: `conda install emboss -c bioconda`")
+#     from hestia.utils.file_format import _write_fasta_chunks
+#     from concurrent.futures import ThreadPoolExecutor
 
-    if (field_name not in df_query.columns):
-        raise ValueError(f'{field_name} not found in query DataFrame')
-    if df_target is not None and field_name not in df_target.columns:
-        raise ValueError(f'{field_name} not found in target DataFrame')
+#     if (field_name not in df_query.columns):
+#         raise ValueError(f'{field_name} not found in query DataFrame')
+#     if df_target is not None and field_name not in df_target.columns:
+#         raise ValueError(f'{field_name} not found in target DataFrame')
 
-    if config is None:
-        config = {
-            "gapopen": 10,
-            "gapextend": 0.5,
-            "endweight": True,
-            "endopen": 10,
-            "endextend": 0.5,
-            "matrix": "EBLOSUM62"
-        }
+#     if config is None:
+#         config = {
+#             "gapopen": 10,
+#             "gapextend": 0.5,
+#             "endweight": True,
+#             "endopen": 10,
+#             "endextend": 0.5,
+#             "matrix": "EBLOSUM62"
+#         }
 
-    tmp_dir = f"hestia_tmp_{time.time()}"
-    db_query = os.path.join(tmp_dir, 'db_query')
-    db_target = os.path.join(tmp_dir, 'db_target')
-    if os.path.isdir(tmp_dir):
-        shutil.rmtree(tmp_dir)
-    os.mkdir(tmp_dir)
-    os.mkdir(db_query)
-    os.mkdir(db_target)
+#     tmp_dir = f"hestia_tmp_{time.time()}"
+#     db_query = os.path.join(tmp_dir, 'db_query')
+#     db_target = os.path.join(tmp_dir, 'db_target')
+#     if os.path.isdir(tmp_dir):
+#         shutil.rmtree(tmp_dir)
+#     os.mkdir(tmp_dir)
+#     os.mkdir(db_query)
+#     os.mkdir(db_target)
 
-    if df_target is None:
-        df_target = df_query
+#     if df_target is None:
+#         df_target = df_query
 
-    n_query = len(df_query)
-    df_query['tmp_id'] = [i for i in range(n_query)]
-    df_target['tmp_id'] = [j + n_query for j in range(len(df_target))]
+#     n_query = len(df_query)
+#     df_query['tmp_id'] = [i for i in range(n_query)]
+#     df_target['tmp_id'] = [j + n_query for j in range(len(df_target))]
 
-    all_seqs = df_query[field_name].tolist() + df_target[field_name].tolist()
-    query_id2idx = {s_id: idx for idx, s_id
-                    in enumerate(df_query.tmp_id)}
-    target_idx2id = {s_id: idx for idx, s_id
-                     in enumerate(df_target.tmp_id)}
-    all_ids = sorted(query_id2idx.keys()) + sorted(target_idx2id.keys())
-    seq_lengths = {str(s_id): len(seq) for s_id, seq in zip(all_ids, all_seqs)}
-    del all_seqs, all_ids
-    jobs_query = _write_fasta_chunks(df_query[field_name].tolist(),
-                                     df_query.tmp_id.tolist(),
-                                     threads, db_query)
-    jobs_target = _write_fasta_chunks(df_target[field_name].tolist(),
-                                      df_target.tmp_id.tolist(),
-                                      threads, db_target)
-    jobs = []
-    proto_df = []
+#     all_seqs = df_query[field_name].tolist() + df_target[field_name].tolist()
+#     query_id2idx = {s_id: idx for idx, s_id
+#                     in enumerate(df_query.tmp_id)}
+#     target_idx2id = {s_id: idx for idx, s_id
+#                      in enumerate(df_target.tmp_id)}
+#     all_ids = sorted(query_id2idx.keys()) + sorted(target_idx2id.keys())
+#     seq_lengths = {str(s_id): len(seq) for s_id, seq in zip(all_ids, all_seqs)}
+#     del all_seqs, all_ids
+#     jobs_query = _write_fasta_chunks(df_query[field_name].tolist(),
+#                                      df_query.tmp_id.tolist(),
+#                                      threads, db_query)
+#     jobs_target = _write_fasta_chunks(df_target[field_name].tolist(),
+#                                       df_target.tmp_id.tolist(),
+#                                       threads, db_target)
+#     jobs = []
+#     proto_df = []
 
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        for i in range(jobs_query):
-            for j in range(jobs_target):
-                query = os.path.join(db_query, f"{i}.fasta.tmp")
-                target = os.path.join(db_target, f"{j}.fasta.tmp")
-                job = executor.submit(_compute_needle, query, target,
-                                      threshold, denominator, is_nucleotide,
-                                      seq_lengths, **config)
-                jobs.append(job)
+#     with ThreadPoolExecutor(max_workers=threads) as executor:
+#         for i in range(jobs_query):
+#             for j in range(jobs_target):
+#                 query = os.path.join(db_query, f"{i}.fasta.tmp")
+#                 target = os.path.join(db_target, f"{j}.fasta.tmp")
+#                 job = executor.submit(_compute_needle, query, target,
+#                                       threshold, denominator, is_nucleotide,
+#                                       seq_lengths, **config)
+#                 jobs.append(job)
 
-        if verbose > 1:
-            pbar = tqdm(jobs)
-        else:
-            pbar = jobs
+#         if verbose > 1:
+#             pbar = tqdm(jobs)
+#         else:
+#             pbar = jobs
 
-        for job in pbar:
-            if job.exception() is not None:
-                raise RuntimeError(job.exception())
+#         for job in pbar:
+#             if job.exception() is not None:
+#                 raise RuntimeError(job.exception())
 
-            result = job.result()
-            for query, target, metric in result:
-                entry = {
-                    'query': query_id2idx[int(query)],
-                    'target': target_idx2id[int(target)],
-                    'metric': metric
-                }
-                proto_df.append(entry)
+#             result = job.result()
+#             for query, target, metric in result:
+#                 entry = {
+#                     'query': query_id2idx[int(query)],
+#                     'target': target_idx2id[int(target)],
+#                     'metric': metric
+#                 }
+#                 proto_df.append(entry)
 
-    df = pd.DataFrame(proto_df)
-    if save_alignment:
-        if filename is None:
-            filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
-    shutil.rmtree(tmp_dir)
-    df = df[df['metric'] > threshold]
-    return df
+#     df = pd.DataFrame(proto_df)
+#     if save_alignment:
+#         if filename is None:
+#             filename = time.time()
+#         df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+#     shutil.rmtree(tmp_dir)
+#     df = df[df['metric'] > threshold]
+#     return df
 
 
-def _compute_needle(
-    query: str,
-    target: str,
-    threshold: float,
-    denominator: str,
-    is_nucleotide: bool,
-    seq_lengths: dict,
-    gapopen: float = 10,
-    gapextend: float = 0.5,
-    endweight: bool = True,
-    endopen: float = 10,
-    endextend: float = 0.5,
-    matrix: str = 'EBLOSUM62'
-):
-    if is_nucleotide:
-        type_1, type_2, = '-snucleotide1', '-snucleotide2'
-    else:
-        type_1, type_2 = '-sprotein1', '-sprotein2'
+# def _compute_needle(
+#     query: str,
+#     target: str,
+#     threshold: float,
+#     denominator: str,
+#     is_nucleotide: bool,
+#     seq_lengths: dict,
+#     gapopen: float = 10,
+#     gapextend: float = 0.5,
+#     endweight: bool = True,
+#     endopen: float = 10,
+#     endextend: float = 0.5,
+#     matrix: str = 'EBLOSUM62'
+# ):
+#     if is_nucleotide:
+#         type_1, type_2, = '-snucleotide1', '-snucleotide2'
+#     else:
+#         type_1, type_2 = '-sprotein1', '-sprotein2'
 
-    FIDENT_CALCULATION = {
-        'n_aligned': lambda x: float(x.split('(')[1][:-3])/100,
-        'shortest': lambda x, q, t: int(x[11:].split('/')[0]) / min(q, t),
-        'longest': lambda x, q, t: int(x[11:].split('/')[0]) / max(q, t)
-    }[denominator]
+#     FIDENT_CALCULATION = {
+#         'n_aligned': lambda x: float(x.split('(')[1][:-3])/100,
+#         'shortest': lambda x, q, t: int(x[11:].split('/')[0]) / min(q, t),
+#         'longest': lambda x, q, t: int(x[11:].split('/')[0]) / max(q, t)
+#     }[denominator]
 
-    command = ["needleall", "-auto", "-stdout",
-               "-aformat", "pair",
-               "-gapopen", str(gapopen),
-               "-gapextend", str(gapextend),
-               "-endopen", str(endopen),
-               "-endextend", str(endextend),
-               "-datafile", matrix,
-               type_1, type_2, query, target]
+#     command = ["needleall", "-auto", "-stdout",
+#                "-aformat", "pair",
+#                "-gapopen", str(gapopen),
+#                "-gapextend", str(gapextend),
+#                "-endopen", str(endopen),
+#                "-endextend", str(endextend),
+#                "-datafile", matrix,
+#                type_1, type_2, query, target]
 
-    if endweight:
-        command.append("-endweight")
+#     if endweight:
+#         command.append("-endweight")
 
-    result = []
+#     result = []
 
-    with subprocess.Popen(
-        command, stdout=subprocess.PIPE,
-        bufsize=1, universal_newlines=True
-    ) as process:
-        for idx, line in enumerate(process.stdout):
-            if line.startswith('# 1:'):
-                query = line[5:].split()[0].split('|')[0]
+#     with subprocess.Popen(
+#         command, stdout=subprocess.PIPE,
+#         bufsize=1, universal_newlines=True
+#     ) as process:
+#         for idx, line in enumerate(process.stdout):
+#             if line.startswith('# 1:'):
+#                 query = line[5:].split()[0].split('|')[0]
 
-            elif line.startswith('# 2:'):
-                target = line[5:].split()[0].split('|')[0]
+#             elif line.startswith('# 2:'):
+#                 target = line[5:].split()[0].split('|')[0]
 
-            elif line.startswith('# Identity:'):
-                fident = FIDENT_CALCULATION(
-                    line, seq_lengths[query],
-                    seq_lengths[target]
-                )
-            elif line.startswith('# Gaps:'):
-                if (fident < threshold or query == target):
-                    continue
-                result.append((query, target, fident))
-    return result
+#             elif line.startswith('# Identity:'):
+#                 fident = FIDENT_CALCULATION(
+#                     line, seq_lengths[query],
+#                     seq_lengths[target]
+#                 )
+#             elif line.startswith('# Gaps:'):
+#                 if (fident < threshold or query == target):
+#                     continue
+#                 result.append((query, target, fident))
+#     return result

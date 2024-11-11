@@ -8,7 +8,9 @@ import pandas as pd
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from hestia.similarity import calculate_similarity
+from hestia.similarity import (sequence_similarity, molecular_similarity,
+                               embedding_similarity,
+                               protein_structure_similarity)
 from hestia.partition import random_partition, ccpart, graph_part
 
 
@@ -18,153 +20,59 @@ class SimilarityArguments:
     def __init__(
         self,
         data_type: str = 'protein',
-        similarity_metric: str = 'mmseqs+prefilter',
         field_name: str = 'sequence',
         min_threshold: float = 0.0,
         threads: int = cpu_count(),
         verbose: int = 0,
         save_alignment: bool = False,
-        filename: str = 'alignment',
+        filename: Optional[str] = 'alignment',
         distance: Optional[str] = None,
         bits: Optional[int] = None,
         radius: Optional[int] = None,
+        fingerprint: Optional[str] = None,
         denominator: Optional[str] = None,
         representation: Optional[str] = None,
-        needle_config: Optional[dict] = None
+        prefilter: Optional[bool] = None,
+        sim_function: Optional[str] = None,
+        query_embds: Optional[np.ndarray] = None
     ):
-        """Arguments for similarity calculation.
-
-        :param df_query: DataFrame with query entities to calculate similarities
-        :type df_query: pd.DataFrame
-        :param df_target: DataFrame with target entities to calculate
-        similarities. If not specified, the `df_query` will be used as `df_target`
-        as well, defaults to None
-        :type df_target: pd.DataFrame, optional
-        :param data_type: Biochemical data_type to which the data belongs.
-        Options: `protein`, `protein_structure`, `DNA`, `RNA`,
-        `small_molecule` or `embedding`; defaults to 'protein'
-        :type data_type: str, optional
-        :param similarity_metric: Similarity function to use.
-        Options:
-            - `protein`: `mmseqs` (local alignment),
-            `mmseqs+prefilter` (fast local alignment), `needle` (global
-            alignment), or `foldseek` (structural alignment).
-            - `DNA` or `RNA`: `mmseqs` (local alignment),
-            `mmseqs+prefilter` (fast local alignment), or `needle`
-            (global alignment).
-            - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
-            scaffolds: either identical or not) or
-            `fingerprint` (Tanimoto distance between ECFP (extended connectivity
-            fingerprints))
-        Defaults to `mmseqs+prefilter`.
-        :type similarity_metric: str, optional
-        :param field_name: Name of the field with the entity information
-        (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
-        :type field_name: str, optional
-        :param threshold: Similarity value above which entities will be
-        considered similar, defaults to 0.0
-        :type threshold: float, optional
-        :param threads: Number of threads available for parallalelization,
-        defaults to cpu_count()
-        :type threads: int, optional
-        :param verbose: How much information will be displayed.
-        Options:
-            - 0: Errors,
-            - 1: Warnings,
-            - 2: All
-        Defaults to 0
-        :type verbose: int, optional
-        :param save_alignment: Save file with similarity calculations,
-        defaults to False
-        :type save_alignment: bool, optional
-        :param filename: Filename where to save the similarity calculations
-        requires `save_alignment` set to `True`, defaults to None
-        :type filename: str, optional
-        :param distance: Distance metrics for small molecule or comparison.
-        Currently, it is restricted to Tanimoto distance will
-        be extended in future patches; if interested in a specific
-        metric please let us know.
-        Options:
-            - `tanimoto`: Calculates the Tanimoto similarity
-            - `cosine`: Calculates the Cosine similarity
-        Defaults to 'tanimoto' if `data_type` is `small_molecule` and
-        to `cosine` if `data_type` is `embedding`.
-        :type distance: str, optional
-        :param bits: Number of bits for ECFP, defaults to 1024
-        :type bits: int, optional
-        :param radius: Radius for ECFP calculation, defaults to 2
-        :type radius: int, optional
-        :param denominator: Denominator for sequence alignments, refers
-        to which lenght to be used as denominator for calculating
-        the sequence identity.
-        Options:
-            - `shortest`: The shortest sequence of the pair
-            - `longest`: The longest sequence of the pair 
-                        (recomended only for peptides)
-            - `n_aligned`: Full alignment length 
-                        (recomended with global alignment)
-        Defaults to 'shortest'
-        :type denominator: str, optional
-        :param representation: Representation for protein structures
-        as interpreted by `Foldseek`.
-        Options:
-            - `3di`: 3D interactions vocabulary.
-            - `3di+aa`: 3D interactions vocabulary and amino
-                        acid sequence.
-            - `TM`: global structural alignment (slow)
-        Defaults to '3di+aa'
-        :type representation: str, optional
-        :param needle_config: Dictionary with options for EMBOSS needle module
-        Default values:
-            - "gapopen": 10,
-            - "gapextend": 0.5,
-            - "endweight": True,
-            - "endopen": 10,
-            - "endextend": 0.5,
-            - "matrix": "EBLOSUM62"
-        :type needle_config: dict, optional
-        """
         self.data_type = data_type
-        self.similarity_metric = similarity_metric
         self.field_name = field_name
         self.min_threshold = min_threshold
         self.threads = threads
         self.verbose = verbose
         self.save_alignment = save_alignment
         self.filename = filename
-        self.distance = distance
-        self.bits = bits
-        self.radius = radius
-        self.denominator = denominator
-        self.representation = representation
-        self.needle_config = needle_config
 
-        if 'molecule' in self.data_type:
-            self.bits = bits
-            self.radius = radius
-        elif self.data_type == 'protein':
+        if 'molecule' in self.data_type or 'smiles' in self.data_type:
+            self.bits = (1_024 if bits is None else bits)
+            self.radius = (2 if radius is None else radius)
+            self.fingerprint = ('ecfp' if fingerprint is None else fingerprint)
+            self.sim_function = ('tanimoto' if sim_function is None else sim_function)
+        elif 'sequence' in self.data_type:
             self.denominator = (denominator if denominator is None
                                 else 'n_aligned')
+            self.prefilter = (False if prefilter is None else True)
+            if ('dna' in self.data_type.lower() or
+                'RNA' in self.data_type.lower() or
+               'nucl' in self.data_type.lower()):
+                self.is_nucleotide = True
+            else:
+                self.is_nucleotide = False
         elif self.data_type == 'protein_structure':
             self.denominator = (denominator if denominator is None
                                 else 'n_aligned')
             self.representation = (representation if representation is None
                                    else '3di+aa')
-        elif (self.data_type in ['DNA', 'RNA', 'protein'] and
-              self.similarity_metric == 'needle'):
-            self.denominator = (denominator if denominator is None
-                                else 'n_aligned')
-            self.needle_config = {
-                "gapopen": 10,
-                "gapextend": 0.5,
-                "endweight": True,
-                "endopen": 10,
-                "endextend": 0.5,
-                "matrix": "EBLOSUM62"
-            } if needle_config is not None else needle_config
+            self.prefilter = (False if prefilter is None else prefilter)
         elif self.data_type == 'embedding':
+            if query_embds is None:
+                raise ValueError('Query embds need to be provided for embedding similarity.')
             self.distance = (distance if distance is None
                              else 'cosine')
+            self.query_embds = query_embds
+        else:
+            raise NotImplementedError(f"Data type: {data_type} not implemented.")
 
 
 class HestiaDatasetGenerator:
@@ -271,29 +179,52 @@ class HestiaDatasetGenerator:
         with gzip.open(output_path, 'w') as fout:
             fout.write(json.dumps(output).encode('utf-8'))
 
-    def calculate_similarity(self, similarity_args: SimilarityArguments):
+    def calculate_similarity(self, sim_args: SimilarityArguments):
         """Calculate pairwise similarity between all the elements in the dataset.
 
-        :param similarity_args: See similarity arguments entry.
+        :param sim_args: See similarity arguments entry.
         :type similarity_args: SimilarityArguments
         """
         print('Calculating similarity...')
-        self.sim_df = calculate_similarity(
-            self.data, data_type=similarity_args.data_type,
-            similarity_metric=similarity_args.similarity_metric,
-            field_name=similarity_args.field_name,
-            threshold=similarity_args.min_threshold,
-            threads=similarity_args.threads,
-            verbose=similarity_args.verbose,
-            save_alignment=similarity_args.save_alignment,
-            filename=similarity_args.filename,
-            distance=similarity_args.distance,
-            bits=similarity_args.bits,
-            radius=similarity_args.radius,
-            denominator=similarity_args.denominator,
-            representation=similarity_args.representation,
-            config=similarity_args.needle_config
-        )
+        if 'sequence' in sim_args.data_type:
+            self.sim_df = sequence_similarity(
+                df_query=self.data, field_name=sim_args.field_name,
+                prefilter=sim_args.prefilter, denominator=sim_args.denominator,
+                is_nucleotide=sim_args.is_nucleotide,
+                threshold=sim_args.min_threshold,
+                threads=sim_args.threads,
+                save_alignment=sim_args.save_alignment,
+                filename=sim_args.filename,
+                verbose=sim_args.verbose)
+        elif 'protein_structure' in sim_args.data_type:
+            self.sim_df = protein_structure_similarity(
+                df_query=self.data, field_name=sim_args.field_name,
+                prefilter=sim_args.prefilter, denominator=sim_args.denominator,
+                representation=sim_args.representation,
+                threshold=sim_args.min_threshold, threads=sim_args.threads,
+                verbose=sim_args.verbose,
+                save_alignment=sim_args.save_alignment,
+                filename=sim_args.filename
+            )
+        elif 'molecu' in sim_args.data_type:
+            self.sim_df = molecular_similarity(
+                df_query=self.data, field_name=sim_args.field_name,
+                sim_function=sim_args.sim_function,
+                fingerprint=sim_args.fingerprint,
+                bits=sim_args.bits, radius=sim_args.radius,
+                threshold=sim_args.min_threshold, threads=sim_args.threads,
+                verbose=sim_args.verbose,
+                save_alignment=sim_args.save_alignment,
+                filename=sim_args.filename
+            )
+        elif 'embedding' in sim_args.data_type:
+            self.sim_df = embedding_similarity(
+                query_embds=sim_args.query_embds,
+                sim_function=sim_args.sim_function,
+                threads=sim_args.threads, threshold=sim_args.min_threshold,
+                save_alignment=sim_args.save_alignment,
+                filename=sim_args.filename
+            )
         print('Similarity successfully calculated!')
 
     def load_similarity(self, output_path: str):
@@ -308,46 +239,37 @@ class HestiaDatasetGenerator:
 
     def calculate_partitions(
         self,
-        label_name: str = None,
-        min_threshold: float = 0.,
-        threshold_step: float = 0.05,
-        test_size: float = 0.2,
-        valid_size: float = 0.1,
-        partition_algorithm: str = 'ccpart',
-        random_state: int = 42,
-        similarity_args: SimilarityArguments = SimilarityArguments(),
+        sim_args: Optional[SimilarityArguments] = None,
+        label_name: Optional[str] = None,
+        min_threshold: Optional[float] = 0.,
+        threshold_step: Optional[float] = 0.05,
+        test_size: Optional[float] = 0.2,
+        valid_size: Optional[float] = 0.1,
+        partition_algorithm: Optional[str] = 'ccpart',
+        random_state: Optional[int] = 42,
         n_partitions: Optional[int] = None
     ):
-        """Calculate partitions
+        """_summary_
 
-        :param label_name:  Name of the field with the label information
-        (only use if labels are categorical) (e.g., `class` or `bioactivity`),
-        defaults to None
-        :type label_name: str, optional
-        :param min_threshold: Minimum threshold for the partitions, defaults to 0.3
-        :type min_threshold: float, optional
-        :param threshold_step: Step between each partition similarity threshold, defaults to 0.05
-        :type threshold_step: float, optional
-        :param test_size: Proportion of entities to be allocated to
-        test subset, defaults to 0.2
-        :type test_size: float, optional
-        :param valid_size: Proportion of entities to be allocated
-        to validation subset, defaults to 0.1
-        :type valid_size: float, optional
-        :param partition_algorithm: Algorithm for generating the partitions.
-        Options:
-            - `ccpart`
-            - `graphpart`
-        Defaults to 'ccpart'
-        :type partition_algorithm: str, optional
-        :param random_state: Seed for pseudo-random number
-        generator algorithm, defaults to 42
-        :type random_state: int, optional
-        :param similarity_args: See similarity arguments entry, defaults to SimilarityArguments()
-        :type similarity_args: SimilarityArguments, optional
-        :param n_partitions: Number of partitions to generate, only works with graphpart partitioning algorithm
-        :type n_partitions: int, optional
-        :raises ValueError: Partitioning algorithm not supported.
+        :param sim_args: _description_, defaults to None
+        :type sim_args: Optional[SimilarityArguments], optional
+        :param label_name: _description_, defaults to None
+        :type label_name: Optional[str], optional
+        :param min_threshold: _description_, defaults to 0.
+        :type min_threshold: Optional[float], optional
+        :param threshold_step: _description_, defaults to 0.05
+        :type threshold_step: Optional[float], optional
+        :param test_size: _description_, defaults to 0.2
+        :type test_size: Optional[float], optional
+        :param valid_size: _description_, defaults to 0.1
+        :type valid_size: Optional[float], optional
+        :param partition_algorithm: _description_, defaults to 'ccpart'
+        :type partition_algorithm: Optional[str], optional
+        :param random_state: _description_, defaults to 42
+        :type random_state: Optional[int], optional
+        :param n_partitions: _description_, defaults to None
+        :type n_partitions: Optional[int], optional
+        :raises ValueError: _description_
         """
         self.metadata = {
             'partition_algorithm': {
@@ -360,21 +282,21 @@ class HestiaDatasetGenerator:
                 'n_partitions': n_partitions
             },
             'similarity_metric': {
-                'data_type': similarity_args.data_type,
-                'similarity_metric': similarity_args.similarity_metric,
-                'min_threshold': similarity_args.min_threshold,
-                'distance': similarity_args.distance,
-                'bits': similarity_args.bits,
-                'radius': similarity_args.radius,
-                'denominator': similarity_args.denominator,
-                'representation': similarity_args.representation,
-                'needle_config': similarity_args.needle_config
+                'data_type': sim_args.data_type,
+                'similarity_metric': sim_args.similarity_metric,
+                'min_threshold': sim_args.min_threshold,
+                'distance': sim_args.distance,
+                'bits': sim_args.bits,
+                'radius': sim_args.radius,
+                'denominator': sim_args.denominator,
+                'representation': sim_args.representation,
+                'needle_config': sim_args.needle_config
             }
         }
         self.partitions = {}
         if self.sim_df is None:
-            similarity_args.min_threshold = min_threshold
-            self.calculate_similarity(similarity_args)
+            sim_args.min_threshold = min_threshold
+            self.calculate_similarity(sim_args)
         print('Calculating partitions...')
 
         if partition_algorithm not in ['ccpart', 'graph_part']:

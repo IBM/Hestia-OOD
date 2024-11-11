@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from hestia.dataset_generator import HestiaDatasetGenerator
 
