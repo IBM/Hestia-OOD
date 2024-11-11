@@ -73,6 +73,7 @@ class SimilarityArguments:
             self.distance = (distance if distance is None
                              else 'cosine')
             self.query_embds = query_embds
+            self.target_embds = target_embds
         else:
             raise NotImplementedError(f"Data type: {data_type} not implemented.")
 
@@ -410,7 +411,8 @@ class HestiaDatasetGenerator:
 
     def calculate_augood(
         self, results: Dict[float, float],
-        target_df: pd.DataFrame, target_field_name: Optional[str]
+        target_df: pd.DataFrame, target_field_name: Optional[str],
+        target_embds: Optional[np.ndarray] = None
     ) -> Tuple[np.ndarray, float]:
         """Calculate the 'area under the GOOD curve' (AU-GOOD) metric.
 
@@ -427,6 +429,8 @@ class HestiaDatasetGenerator:
         :type target_df: pd.DataFrame
         :param target_field_name: Name of the field in `target_df` that contains target values for comparison.
         :type target_field_name: Optional[str]
+        :param target_embds: A NumPy array containing the target embeddings for similarity calculation.
+        :type target_embds: Optional[np.ndarray]
         :return: A tuple containing:
                 - `good_curve` (np.ndarray): Array of weighted values representing the GOOD curve.
                 - `au_good` (float): The calculated area under the GOOD curve.
