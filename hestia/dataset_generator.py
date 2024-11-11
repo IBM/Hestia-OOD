@@ -294,6 +294,7 @@ class HestiaDatasetGenerator:
     def calculate_partitions(
         self,
         sim_args: Optional[SimilarityArguments] = None,
+        sim_df: Optional[pd.DataFrame] = None,
         label_name: Optional[str] = None,
         min_threshold: Optional[float] = 0.,
         threshold_step: Optional[float] = 0.05,
@@ -338,9 +339,9 @@ class HestiaDatasetGenerator:
             'similarity_metric': vars(sim_args)
         }
         self.partitions = {}
-        if self.sim_df is None:
+        if sim_df is None:
             sim_args.min_threshold = min_threshold
-            self.calculate_similarity(sim_args)
+            sim_df = self.calculate_similarity(sim_args)
         print('Calculating partitions...')
 
         if partition_algorithm not in ['ccpart', 'graph_part']:
@@ -357,7 +358,7 @@ class HestiaDatasetGenerator:
                     self.data,
                     label_name=label_name, test_size=test_size,
                     threshold=th / 100,
-                    sim_df=self.sim_df, verbose=2
+                    sim_df=sim_df, verbose=2
                 )
                 th_parts = (train, test)
             elif partition_algorithm == 'graph_part':
@@ -367,7 +368,7 @@ class HestiaDatasetGenerator:
                         label_name=label_name,
                         test_size=test_size if n_partitions is None else 0.0,
                         threshold=th / 100,
-                        sim_df=self.sim_df, verbose=2,
+                        sim_df=sim_df, verbose=2,
                         n_parts=n_partitions
                     )
                 except RuntimeError:
