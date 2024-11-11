@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
 
-from hestia.similarity import calculate_similarity, sim_df2mtx
+from hestia.similarity import sim_df2mtx
 from hestia.clustering import generate_clusters
 from hestia.reduction import similarity_reduction
 from hestia.utils import (_assign_partitions, _cluster_reassignment,
@@ -45,124 +45,16 @@ def random_partition(
 
 def ccpart(
     df: pd.DataFrame,
-    similarity_metric: str = None,
+    sim_df: pd.DataFrame,
     field_name: str = None,
     label_name: str = None,
-    threads: int = cpu_count(),
-    denominator: str = 'n_aligned',
     test_size: float = 0.2,
     valid_size: float = 0.0,
     threshold: float = 0.3,
     verbose: int = 0,
-    data_type: str = 'protein',
-    distance: str = 'tanimoto',
-    representation: str = '3di+aa',
-    bits: int = 1024,
-    radius: int = 2,
-    config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None,
     filter_smaller: Optional[bool] = True
 ) -> Union[Tuple[list, list, list], Tuple[list, list, list, list]]:
-    """Use CCPart algorithm
-    to generate training and evaluation subsets
-    that maximise the dissimilarity between their
-    entities.
 
-    :param df: DataFrame with the entities to partition
-    :type df: pd.DataFrame
-    :param similarity_metric: Similarity function to use.
-    Options:
-        - `protein`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), `needle` (global
-           alignment), or `foldseek` (structural alignment).
-        - `DNA` or `RNA`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), or `needle`
-          (global alignment).
-        - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
-           scaffolds: either identical or not) or
-          `fingerprint` (Tanimoto distance between ECFP (extended connectivity
-           fingerprints))
-    Defaults to `mmseqs+prefilter`.
-    :type similarity_metric: str
-    :param field_name: Name of the field with the entity information
-    (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
-    :type field_name: str
-    :param label_name: Name of the field with the label information
-    (only use if labels are categorical) (e.g., `class` or `bioactivity`),
-    defaults to None.
-    :type label_name: str
-    :param threads: Number of threads available for parallalelization,
-    defaults to cpu_count()
-    :type threads: int, optional
-    :param denominator: Denominator for sequence alignments, refers
-    to which lenght to be used as denominator for calculating
-    the sequence identity.
-    Options:
-        - `shortest`: The shortest sequence of the pair
-        - `longest`: The longest sequence of the pair 
-                    (recomended only for peptides)
-        - `n_aligned`: Full alignment length 
-                      (recomended with global alignment)
-    Defaults to 'n_aligned'
-    :type denominator: str, optional
-    :param test_size: Proportion of entities to be allocated to
-    test subset, defaults to 0.2
-    :type test_size: float, optional
-    :param valid_size: Proportion of entities to be allocated
-    to validation subset, defaults to 0.0
-    :type valid_size: float, optional
-    :param threshold: Similarity value above which entities will be
-    considered similar, defaults to 0.3
-    :type threshold: float, optional
-    :param verbose: How much information will be displayed.
-    Options:
-        - 0: Errors,
-        - 1: Warnings,
-        - 2: All
-    Defaults to 0
-    :type verbose: int, optional
-    :param data_type: Biochemical data_type to which the data belongs.
-    Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
-    'protein'
-    :type data_type: str, optional
-    :param distance: Distance metrics for small molecule comparison.
-    Currently, it is restricted to Tanimoto distance will
-    be extended in future patches; if interested in a specific
-    metric please let us know.
-    Options:
-        - `tanimoto`: Calculates the Tanimoto distance
-    Defaults to 'tanimoto'.
-    :type distance: str, optional
-    :param representation: Representation for protein structures
-    as interpreted by `Foldseek`.
-    Options:
-        - `3di`: 3D interactions vocabulary.
-        - `3di+aa`: 3D interactions vocabulary and amino
-                    acid sequence.
-        - `TM`: global structural alignment (slow)
-    Defaults to '3di+aa'
-    :type representation: str, optional
-    :param bits: Number of bits for ECFP, defaults to 1024
-    :type bits: int, optional
-    :param radius: Radius for ECFP calculation, defaults to 2
-    :type radius: int, optional
-    :param config: Dictionary with options for EMBOSS needle module
-    Default values:
-        - "gapopen": 10,
-        - "gapextend": 0.5,
-        - "endweight": True,
-        - "endopen": 10,
-        - "endextend": 0.5,
-        - "matrix": "EBLOSUM62"
-    :type config: dict, optional
-    :param sim_df:  DataFrame with similarities (`metric`) between
-    `query` and `target`, it is the product of `calculate_similarity` function,
-    defaults to None
-    :type sim_df: Optional[pd.DataFrame], optional
-    :return: A tuple with the indexes of training and evaluation samples
-    or training, evaluation, and validation samples (if valid_size > 0).
-    :rtype: Union[Tuple[list, list], Tuple[list, list, list]]
-    """
     train, test, valid = [], [], []
     size = len(df)
 
@@ -174,16 +66,16 @@ def ccpart(
     expected_test = test_size * size
     expected_valid = valid_size * size
 
-    if sim_df is None:
-        sim_df = calculate_similarity(
-            df, df, data_type=data_type,
-            similarity_metric=similarity_metric,
-            field_name=field_name, threshold=threshold,
-            threads=threads, verbose=verbose,
-            save_alignment=False, filename=None, distance=distance,
-            bits=bits, denominator=denominator, radius=radius,
-            representation=representation, config=config
-        )
+    # if sim_df is None:
+    #     sim_df = calculate_similarity(
+    #         df, df, data_type=data_type,
+    #         similarity_metric=similarity_metric,
+    #         field_name=field_name, threshold=threshold,
+    #         threads=threads, verbose=verbose,
+    #         save_alignment=False, filename=None, distance=distance,
+    #         bits=bits, denominator=denominator, radius=radius,
+    #         representation=representation, config=config
+    #     )
     cluster_df = generate_clusters(df, field_name=field_name,
                                    threshold=threshold,
                                    verbose=verbose,
@@ -243,6 +135,7 @@ def ccpart(
 
 def reduction_partition(
     df: pd.DataFrame,
+    sim_df: pd.DataFrame,
     field_name: str,
     similarity_metric: str = 'mmseqs+prefilter',
     threads: int = cpu_count(),
@@ -258,109 +151,7 @@ def reduction_partition(
     bits: int = 1024,
     radius: int = 2,
     config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Use similarity reduction and then partition
-    the representative members of each cluster
-    into training and evaluation partitions.
-
-    :param df: DataFrame with the entities to partition
-    :type df: pd.DataFrame
-    :param similarity_metric: Similarity function to use.
-    Options:
-        - `protein`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), `needle` (global
-           alignment), or `foldseek` (structural alignment).
-        - `DNA` or `RNA`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), or `needle`
-          (global alignment).
-        - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
-           scaffolds: either identical or not) or
-          `fingerprint` (Tanimoto distance between ECFP (extended connectivity
-           fingerprints))
-    Defaults to `mmseqs+prefilter`.
-    :type similarity_metric: str
-    :param field_name: Name of the field with the entity information
-    (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
-    :type field_name: str
-    :param clustering_mode: Clustering algorithm to use.
-    Options:
-        - `CDHIT` or `greedy_incremental`
-        - `greedy_cover_set`
-    Defaults to "CDHIT"
-    :type clustering_mode: str, optional
-    :param threads: Number of threads available for parallalelization,
-    defaults to cpu_count()
-    :type threads: int, optional
-    :param denominator: Denominator for sequence alignments, refers
-    to which lenght to be used as denominator for calculating
-    the sequence identity.
-    Options:
-        - `shortest`: The shortest sequence of the pair
-        - `longest`: The longest sequence of the pair 
-                    (recomended only for peptides)
-        - `n_aligned`: Full alignment length 
-                      (recomended with global alignment)
-    Defaults to 'shortest'
-    :type denominator: str, optional
-    :param test_size: Proportion of entities to be allocated to
-    test subset, defaults to 0.2
-    :type test_size: float, optional
-    :param valid_size: Proportion of entities to be allocated
-    to validation subset, defaults to 0.0
-    :type valid_size: float, optional
-    :param threshold: Similarity value above which entities will be
-    considered similar, defaults to 0.3
-    :type threshold: float, optional
-    :param verbose: How much information will be displayed.
-    Options:
-        - 0: Errors,
-        - 1: Warnings,
-        - 2: All
-    Defaults to 0
-    :type verbose: int, optional
-    :param data_type: Biochemical data_type to which the data belongs.
-    Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
-    'protein'
-    :type data_type: str, optional
-    :param distance: Distance metrics for small molecule comparison.
-    Currently, it is restricted to Tanimoto distance will
-    be extended in future patches; if interested in a specific
-    metric please let us know.
-    Options:
-        - `tanimoto`: Calculates the Tanimoto distance
-    Defaults to 'tanimoto'.
-    :type distance: str, optional
-    :param representation: Representation for protein structures
-    as interpreted by `Foldseek`.
-    Options:
-        - `3di`: 3D interactions vocabulary.
-        - `3di+aa`: 3D interactions vocabulary and amino
-                    acid sequence.
-        - `TM`: global structural alignment (slow)
-    Defaults to '3di+aa'
-    :type representation: str, optional
-    :param bits: Number of bits for ECFP, defaults to 1024
-    :type bits: int, optional
-    :param radius: Radius for ECFP calculation, defaults to 2
-    :type radius: int, optional
-    :param config: Dictionary with options for EMBOSS needle module
-    Default values:
-        - "gapopen": 10,
-        - "gapextend": 0.5,
-        - "endweight": True,
-        - "endopen": 10,
-        - "endextend": 0.5,
-        - "matrix": "EBLOSUM62"
-    :type config: dict, optional
-    :param sim_df:  DataFrame with similarities (`metric`) between
-    `query` and `target`, it is the product of `similarity` function,
-    defaults to None
-    :type sim_df: Optional[pd.DataFrame], optional
-    :return: A tuple with the indexes of training and evaluation samples
-    or training, evaluation, and validation samples (if valid_size > 0).
-    :rtype: Union[Tuple[list, list], Tuple[list, list, list]]
-    """
     df = similarity_reduction(df, similarity_metric, field_name,
                               threads, clustering_mode, denominator,
                               test_size, threshold, verbose, data_type,
@@ -379,135 +170,25 @@ def reduction_partition(
 
 def graph_part(
     df: pd.DataFrame,
-    similarity_metric: str = None,
-    field_name: str = None,
+    sim_df: pd.DataFrame,
     label_name: str = None,
-    threads: int = cpu_count(),
-    denominator: str = 'n_aligned',
     test_size: float = 0.0,
     valid_size: float = 0.0,
     threshold: float = 0.3,
     verbose: int = 2,
     n_parts: int = 10,
-    data_type: str = 'protein',
-    distance: str = 'tanimoto',
-    representation: str = '3di+aa',
-    bits: int = 1024,
-    radius: int = 2,
-    config: dict = None,
-    sim_df: Optional[pd.DataFrame] = None,
     filter_smaller: Optional[bool] = True
 ):
-    """Use a custom implementation of the GraphPart
-    algorithm, doi: https://doi.org/10.1093/nargab/lqad088,
-    to generate training and evaluation subsets
-    with no similar entities between them.
-
-    :param df: DataFrame with the entities to partition
-    :type df: pd.DataFrame
-    :param similarity_metric: Similarity function to use.
-    Options:
-        - `protein`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), `needle` (global
-           alignment), or `foldseek` (structural alignment).
-        - `DNA` or `RNA`: `mmseqs` (local alignment),
-          `mmseqs+prefilter` (fast local alignment), or `needle`
-          (global alignment).
-        - `small molecule`: `scaffold` (boolean comparison of Bemis-Murcko
-           scaffolds: either identical or not) or
-          `fingerprint` (Tanimoto distance between ECFP (extended connectivity
-           fingerprints))
-    Defaults to `mmseqs+prefilter`.
-    :type similarity_metric: str
-    :param field_name: Name of the field with the entity information
-    (e.g., `protein_sequence` or `structure_path`), defaults to 'sequence'.
-    :type field_name: str
-    :param label_name: Name of the field with the label information
-    (only use if labels are categorical) (e.g., `class` or `bioactivity`),
-    defaults to None.
-    :type label_name: str
-    :param threads: Number of threads available for parallalelization,
-    defaults to cpu_count()
-    :type threads: int, optional
-    :param denominator: Denominator for sequence alignments, refers
-    to which lenght to be used as denominator for calculating
-    the sequence identity.
-    Options:
-        - `shortest`: The shortest sequence of the pair
-        - `longest`: The longest sequence of the pair 
-                    (recomended only for peptides)
-        - `n_aligned`: Full alignment length 
-                      (recomended with global alignment)
-    Defaults to 'shortest'
-    :type denominator: str, optional
-    :param test_size: Proportion of entities to be allocated to
-    test subset, defaults to 0.2
-    :type test_size: float, optional
-    :param valid_size: Proportion of entities to be allocated
-    to validation subset, defaults to 0.0
-    :type valid_size: float, optional
-    :param threshold: Similarity value above which entities will be
-    considered similar, defaults to 0.3
-    :type threshold: float, optional
-    :param verbose: How much information will be displayed.
-    Options:
-        - 0: Errors,
-        - 1: Warnings,
-        - 2: All
-    Defaults to 0
-    :type verbose: int, optional
-    :param data_type: Biochemical data_type to which the data belongs.
-    Options: `protein`, `DNA`, `RNA`, or `small_molecule`; defaults to
-    'protein'
-    :type data_type: str, optional
-    :param distance: Distance metrics for small molecule comparison.
-    Currently, it is restricted to Tanimoto distance will
-    be extended in future patches; if interested in a specific
-    metric please let us know.
-    Options:
-        - `tanimoto`: Calculates the Tanimoto distance
-    Defaults to 'tanimoto'.
-    :type distance: str, optional
-    :param representation: Representation for protein structures
-    as interpreted by `Foldseek`.
-    Options:
-        - `3di`: 3D interactions vocabulary.
-        - `3di+aa`: 3D interactions vocabulary and amino
-                    acid sequence.
-        - `TM`: global structural alignment (slow)
-    Defaults to '3di+aa'
-    :type representation: str, optional
-    :param bits: Number of bits for ECFP, defaults to 1024
-    :type bits: int, optional
-    :param radius: Radius for ECFP calculation, defaults to 2
-    :type radius: int, optional
-    :param config: Dictionary with options for EMBOSS needle module
-    Default values:
-        - "gapopen": 10,
-        - "gapextend": 0.5,
-        - "endweight": True,
-        - "endopen": 10,
-        - "endextend": 0.5,
-        - "matrix": "EBLOSUM62"
-    :type config: dict, optional
-    :param sim_df:  DataFrame with similarities (`metric`) between
-    `query` and `target`, it is the product of `similarity` function,
-    defaults to None
-    :type sim_df: Optional[pd.DataFrame], optional
-    :return: A tuple with the indexes of training and evaluation samples
-    or training, evaluation, and validation samples (if valid_size > 0).
-    :rtype: Union[Tuple[list, list], Tuple[list, list, list]]
-    """
-    if sim_df is None:
-        sim_df = calculate_similarity(
-            df, df, data_type=data_type,
-            similarity_metric=similarity_metric,
-            field_name=field_name, threshold=threshold,
-            threads=threads, verbose=verbose,
-            save_alignment=False, filename=None, distance=distance,
-            bits=bits, denominator=denominator, radius=radius,
-            representation=representation, config=config
-        )
+    # if sim_df is None:
+    #     sim_df = calculate_similarity(
+    #         df, df, data_type=data_type,
+    #         similarity_metric=similarity_metric,
+    #         field_name=field_name, threshold=threshold,
+    #         threads=threads, verbose=verbose,
+    #         save_alignment=False, filename=None, distance=distance,
+    #         bits=bits, denominator=denominator, radius=radius,
+    #         representation=representation, config=config
+    #     )
 
     mtx = sim_df2mtx(sim_df, len(df))
     if filter_smaller:
