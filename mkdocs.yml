@@ -9,6 +9,7 @@ nav:
   - Partitioning algorithms: partition/
   - Similarity reduction: reduction/
   - Clustering algorithms: clustering/
+  - Dataset generator: dataset_generator/
 - Code reference:
   - Dataset generator:
       - datasetgenerator.md
