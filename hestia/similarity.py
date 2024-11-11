@@ -23,6 +23,29 @@ def sim_df2mtx(sim_df: pd.DataFrame,
                threshold: Optional[float] = 0.0,
                filter_smaller: Optional[bool] = True,
                boolean_out: Optional[bool] = True) -> spr.csr_matrix:
+    """
+    Converts a DataFrame of similarity scores into a sparse matrix representation, optionally filtering 
+    based on a similarity threshold and producing a boolean or numerical output.
+
+    :param sim_df: DataFrame containing similarity data with `query`, `target`, and `metric` columns.
+    :type sim_df: pd.DataFrame
+    :param size_query: Total number of unique query indices, defining the first dimension of the matrix. 
+                       Defaults to the number of unique queries in `sim_df`.
+    :type size_query: int, optional
+    :param size_target: Total number of unique target indices, defining the second dimension of the matrix. 
+                        Defaults to `size_query`, assuming a square matrix.
+    :type size_target: int, optional
+    :param threshold: Similarity score threshold for filtering. Defaults to 0.0.
+    :type threshold: float, optional
+    :param filter_smaller: If True, retains values above the threshold. If False, retains values below it.
+    :type filter_smaller: bool, optional
+    :param boolean_out: If True, converts output to boolean values, representing presence/absence of similarity. 
+                        If False, retains original similarity values.
+    :type boolean_out: bool, optional
+
+    :return: Symmetric sparse matrix of filtered similarity scores, either in boolean or numerical format.
+    :rtype: spr.csr_matrix
+    """
     if size_query is None:
         size_query = len(sim_df['query'].unique())
     if size_target is None:
@@ -61,6 +84,35 @@ def embedding_similarity(
     filename: str = None,
     **kwargs
 ) -> pd.DataFrame:
+    """
+    Calculates pairwise similarity between embeddings in `query_embds` and `target_embds` using specified
+    similarity functions. Supports parallel processing to handle large datasets efficiently.
+
+    :param query_embds: Array of embeddings for the query set. Each row should represent a single embedding.
+    :type query_embds: np.ndarray
+    :param target_embds: Array of embeddings for the target set. If None, self-comparison of `query_embds` 
+                         is performed.
+    :type target_embds: np.ndarray, optional
+    :param sim_function: Similarity function to use for pairwise comparison. Default is 'cosine'. Can be either 
+                         a string specifying a built-in function or a custom callable.
+    :type sim_function: Union[str, Callable], optional
+    :param threads: Number of CPU threads for parallel processing. Defaults to the system CPU count.
+    :type threads: int, optional
+    :param threshold: Minimum similarity score required to include a pair in the results. Defaults to 0.0.
+    :type threshold: float, optional
+    :param save_alignment: If True, saves the alignment results to a compressed CSV file.
+    :type save_alignment: bool, optional
+    :param filename: Name for the output file if `save_alignment` is True. Defaults to a timestamp if None.
+    :type filename: str, optional
+    :param **kwargs: Additional keyword arguments for compatibility.
+
+    :raises RuntimeError: If any exception occurs in a thread during similarity calculation.
+    :raises KeyError: If the specified `sim_function` is not supported.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents a pairwise 
+             similarity score above the specified `threshold`.
+    :rtype: pd.DataFrame
+    """
     if target_embds is None:
         target_embds = query_embds
 
@@ -127,6 +179,48 @@ def molecular_similarity(
     filename: str = None,
     **kwargs
 ) -> pd.DataFrame:
+    """
+    Calculates pairwise molecular similarity between query and target molecules using specified fingerprint
+    and similarity functions. Uses RDKit for molecular fingerprinting and similarity calculations.
+
+    :param df_query: DataFrame containing SMILES strings of query molecules. Each row should have a column 
+                     specified by `field_name` with SMILES strings.
+    :type df_query: pd.DataFrame
+    :param df_target: DataFrame containing SMILES strings of target molecules. If None, self-comparison of 
+                      `df_query` is performed.
+    :type df_target: pd.DataFrame, optional
+    :param field_name: Column name in `df_query` and `df_target` that contains SMILES strings. Defaults to 'smiles'.
+    :type field_name: str, optional
+    :param sim_function: Similarity function to use for pairwise comparison. Options include 'tanimoto', 'dice', 
+                         'sokal', 'rogot-goldberg', and 'cosine'. Defaults to 'tanimoto'.
+    :type sim_function: str, optional
+    :param fingerprint: Type of fingerprint to use, options are 'ecfp' (Extended-Connectivity Fingerprint), 
+                        'maccs' (MACCS keys), or 'mapc' (requires the mapchiral package). Defaults to 'ecfp'.
+    :type fingerprint: str, optional
+    :param bits: Size of the fingerprint bit vector, applicable to `ecfp`. Defaults to 1024.
+    :type bits: int, optional
+    :param radius: Radius for the ECFP fingerprint, applicable to `ecfp`. Defaults to 2.
+    :type radius: int, optional
+    :param threshold: Minimum similarity score required to include a pair in the results. Defaults to 0.0.
+    :type threshold: float, optional
+    :param threads: Number of CPU threads for parallel processing. Defaults to the system CPU count.
+    :type threads: int, optional
+    :param verbose: Verbosity level, where higher values increase output detail. Defaults to 0.
+    :type verbose: int, optional
+    :param save_alignment: If True, saves the alignment results to a compressed CSV file.
+    :type save_alignment: bool, optional
+    :param filename: Name for the output file if `save_alignment` is True. Defaults to a timestamp if None.
+    :type filename: str, optional
+    :param **kwargs: Additional keyword arguments for compatibility.
+
+    :raises ImportError: If RDKit (or mapchiral, if used with 'mapc') is not installed.
+    :raises ValueError: If `field_name` is missing from `df_query` or `df_target`.
+    :raises NotImplementedError: If `sim_function` is not supported by the function.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents a pairwise 
+             similarity score above the specified `threshold`.
+    :rtype: pd.DataFrame
+    """
 
     try:
         from rdkit import Chem
@@ -320,7 +414,48 @@ def protein_structure_similarity(
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
-) -> Union[pd.DataFrame, np.ndarray]:
+) -> Union[pd.DataFrame, np.ndarray]:   
+    """
+    Calculates pairwise structural similarity between query and target protein structures using Foldseek.
+    Supports alignment based on various representations, including 3D alignment, TM alignment, and 
+    combined 3D and amino acid alignments.
+
+    :param df_query: DataFrame containing query protein structures. Each row should have a column 
+                     specified by `field_name` with paths to PDB files.
+    :type df_query: pd.DataFrame
+    :param df_target: DataFrame containing target protein structures, with each row holding paths to 
+                      PDB files in `field_name`. If None, self-comparison of `df_query` is performed.
+    :type df_target: pd.DataFrame, optional
+    :param field_name: Column name in `df_query` and `df_target` with paths to PDB structure files.
+                       Defaults to 'structure'.
+    :type field_name: str, optional
+    :param prefilter: Enables prefiltering to reduce computation. Defaults to True.
+    :type prefilter: bool, optional
+    :param denominator: Determines similarity normalization, using "shortest" (default), "longest", 
+                        or the number of aligned residues (`n_aligned`).
+    :type denominator: str, optional
+    :param representation: Alignment representation mode, with options '3di', 'TM', or '3di+aa'. 
+                           Defaults to '3di+aa'.
+    :type representation: str, optional
+    :param threshold: Minimum similarity metric required to include an alignment in the results. Defaults to 0.0.
+    :type threshold: float, optional
+    :param threads: Number of CPU threads for parallel processing. Defaults to system CPU count.
+    :type threads: int, optional
+    :param verbose: Verbosity level for process logging, where higher values increase output detail.
+    :type verbose: int, optional
+    :param save_alignment: If True, saves alignment results to a compressed CSV file.
+    :type save_alignment: bool, optional
+    :param filename: Name for the output file if `save_alignment` is True. Defaults to a timestamp if None.
+    :type filename: str, optional
+    :param **kwargs: Additional keyword arguments for compatibility.
+
+    :raises ImportError: If Foldseek is not installed or accessible in the system PATH.
+    :raises ValueError: If `field_name` is missing from `df_query` or `df_target`.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents an alignment 
+             with a similarity metric above `threshold`. Returns the metric value determined by `representation`.
+    :rtype: Union[pd.DataFrame, np.ndarray]
+    """
     if shutil.which('foldseek') is None:
         mssg = "Foldseek not found. Please install following the instructions"
         mssg += " in: https://github.com/IBM/Hestia-OOD#installation"
@@ -430,7 +565,46 @@ def sequence_similarity_peptides(
     save_alignment: Optional[bool] = False,
     filename: Optional[int] = None
 ) -> pd.DataFrame:
+    """
+    Calculates pairwise sequence similarity between query and target peptide sequences using MMSeqs2.
+    Sequences are divided into "small," "medium," and "normal" categories based on length, and 
+    each category is aligned with a specific method for optimal recall.
 
+    - _small_alignment: For sequences with 8 or fewer residues, checks if one sequence is a subsequence of the other.
+    - _medium_alignment: For sequences between 9 and 20 residues, uses a lower threshold with MMSeqs2 to filter alignments.
+    - _normal_alignment: For sequences longer than 20 residues, performs full alignments with MMSeqs2.
+
+    :param df_query: DataFrame containing the query peptide sequences. Each row should have a column 
+                     specified by `field_name` with peptide sequence strings.
+    :type df_query: pd.DataFrame
+    :param df_target: DataFrame with target peptide sequences, where each row has a `field_name` column 
+                      containing sequence strings. If None, `df_query` will be used for self-comparisons.
+    :type df_target: pd.DataFrame, optional
+    :param field_name: Column name in `df_query` and `df_target` holding the sequence data to be aligned.
+                       Defaults to 'sequence'.
+    :type field_name: str, optional
+    :param denominator: Determines how similarity is calculated, using either "shortest" (default), 
+                        "longest", or the number of aligned residues (`n_aligned`).
+    :type denominator: str, optional
+    :param threads: Number of threads for parallel processing. Defaults to system CPU count.
+    :type threads: int, optional
+    :param threshold: Minimum similarity metric for alignment entries to be included in the output. Defaults to 0.0.
+    :type threshold: float, optional
+    :param verbose: Verbosity level, where 0 is silent and higher levels increase detail in logging.
+    :type verbose: int, optional
+    :param save_alignment: If True, saves the resulting DataFrame to a compressed CSV file.
+    :type save_alignment: bool, optional
+    :param filename: Filename for saving the alignment results if `save_alignment` is True. 
+                     If None, a timestamp is used as the filename.
+    :type filename: str, optional
+
+    :raises RuntimeError: If MMSeqs2 is not installed or is unavailable in the system PATH.
+    :raises ValueError: If `field_name` is not found in `df_query` or `df_target`.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents 
+             an alignment result with similarity metric above the `threshold`.
+    :rtype: pd.DataFrame
+    """
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
             "MMSeqs2 not found. Please install following the instructions in:",
@@ -596,6 +770,46 @@ def sequence_similarity_mmseqs(
     save_alignment: bool = False,
     filename: str = None
 ) -> pd.DataFrame:
+    """
+    Calculate pairwise sequence similarity between query and target sequences using MMSeqs2, 
+    with optional prefiltering for efficiency. Designed for parallel execution and customizable 
+    alignment parameters.
+
+    :param df_query: DataFrame containing the query sequences. Each row should have a column 
+                     specified by `field_name` with sequence strings.
+    :type df_query: pd.DataFrame
+    :param df_target: DataFrame with target sequences, where each row has a `field_name` column 
+                      containing sequence strings. If None, `df_query` will be used for self-comparisons.
+    :type df_target: pd.DataFrame, optional
+    :param field_name: Column name in `df_query` and `df_target` holding the sequence data to be aligned.
+                       Defaults to 'sequence'.
+    :type field_name: str, optional
+    :param prefilter: If True, performs an initial filtering step to reduce the number of comparisons.
+    :type prefilter: bool, optional
+    :param denominator: Determines how similarity is calculated, using either "shortest" (default), 
+                        "longest", or the number of aligned residues (`n_aligned`).
+    :type denominator: str, optional
+    :param threads: Number of threads for parallel processing. Defaults to system CPU count.
+    :type threads: int, optional
+    :param is_nucleotide: Set to True if sequences are nucleotide-based. Defaults to False (for protein sequences).
+    :type is_nucleotide: bool, optional
+    :param threshold: Minimum similarity metric for alignment entries to be included in the output. Defaults to 0.0.
+    :type threshold: float, optional
+    :param verbose: Verbosity level, where 0 is silent and higher levels increase detail in logging.
+    :type verbose: int, optional
+    :param save_alignment: If True, saves the resulting DataFrame to a compressed CSV file.
+    :type save_alignment: bool, optional
+    :param filename: Filename for saving the alignment results if `save_alignment` is True.
+                     If None, a timestamp is used as the filename.
+    :type filename: str, optional
+
+    :raises RuntimeError: If MMSeqs2 is not installed or is unavailable in the system PATH.
+    :raises ValueError: If `field_name` is not found in `df_query` or `df_target`.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents
+             an alignment result with similarity metric above the `threshold`.
+    :rtype: pd.DataFrame
+    """
 
     if shutil.which('mmseqs') is None:
         raise RuntimeError(
@@ -701,36 +915,52 @@ def sequence_similarity_needle(
     save_alignment: bool = False,
     filename: str = None
 ) -> pd.DataFrame:
-    """_summary_
+    """
+    Calculate pairwise sequence similarity between query and target sequences using the 
+    EMBOSS `needleall` tool. This function is designed for efficient parallel processing 
+    and supports custom alignment parameters.
 
-    :param df_query: _description_
+    :param df_query: DataFrame containing the query sequences. Each row should have a column 
+                     specified by `field_name` that contains sequence strings.
     :type df_query: pd.DataFrame
-    :param df_target: _description_, defaults to None
+    :param df_target: DataFrame containing the target sequences, with a column specified by 
+                      `field_name` containing sequence strings. If None, `df_query` will 
+                      be used as the target DataFrame, performing self-comparisons.
     :type df_target: pd.DataFrame, optional
-    :param field_name: _description_, defaults to 'sequence'
+    :param field_name: Name of the column in `df_query` and `df_target` containing the 
+                       sequence data to be compared. Defaults to 'sequence'.
     :type field_name: str, optional
-    :param threshold: _description_, defaults to 0.0
-    :type threshold: float, optional
-    :param denominator: _description_, defaults to 'shortest'
+    :param denominator: Determines how similarity is calculated; options are "shortest" 
+                        (default), "longest", or "average" sequence length between pairs.
     :type denominator: str, optional
-    :param threads: _description_, defaults to cpu_count()
-    :type threads: int, optional
-    :param is_nucleotide: _description_, defaults to False
+    :param is_nucleotide: Indicates if the sequences are nucleotide sequences. If False, 
+                          assumes sequences are protein-based.
     :type is_nucleotide: bool, optional
-    :param verbose: _description_, defaults to 0
-    :type verbose: int, optional
-    :param config: _description_, defaults to None
+    :param config: Dictionary of EMBOSS `needleall` alignment parameters, such as 
+                   `gapopen`, `gapextend`, etc. If None, default configuration is used.
     :type config: dict, optional
-    :param save_alignment: _description_, defaults to False
+    :param threshold: Minimum similarity metric required for alignment entries to be included 
+                      in the output. Defaults to 0.0.
+    :type threshold: float, optional
+    :param threads: Number of threads to use for parallel processing. Defaults to system 
+                    CPU count.
+    :type threads: int, optional
+    :param verbose: Verbosity level of function output; 0 is silent, higher numbers increase 
+                    output detail.
+    :type verbose: int, optional
+    :param save_alignment: If True, saves the resulting DataFrame to a compressed CSV file.
     :type save_alignment: bool, optional
-    :param filename: _description_, defaults to None
+    :param filename: Filename for saving the alignment results if `save_alignment` is True. 
+                     If None, a timestamp will be used as the filename.
     :type filename: str, optional
-    :raises ImportError: _description_
-    :raises ValueError: _description_
-    :raises ValueError: _description_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: _type_
+
+    :raises ImportError: Raised if the `needleall` tool from EMBOSS is not installed.
+    :raises ValueError: Raised if `field_name` is missing from `df_query` or `df_target`.
+    :raises RuntimeError: Raised if any alignment job encounters an exception during processing.
+
+    :return: DataFrame with columns `query`, `target`, and `metric`, where each row 
+             represents a sequence alignment result, filtered by the specified `threshold`.
+    :rtype: pd.DataFrame
     """
     if shutil.which("needleall") is None:
         raise ImportError("EMBOSS needleall not found. Please install by ",
