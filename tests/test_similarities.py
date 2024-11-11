@@ -1,4 +1,6 @@
-from hestia.similarity import calculate_similarity, sim_df2mtx
+from hestia.similarity import (sequence_similarity, molecular_similarity,
+                               embedding_similarity,
+                               protein_structure_similarity, sim_df2mtx)
 import numpy as np
 import pandas as pd
 
@@ -10,10 +12,9 @@ def test_fingerprint_alignment():
         '[H]c1c(c(c(c(c1[H])Cl)[H])N([H])c2nc3c(c(n2)OC([H])([H])C4(C(C(C(C(C4([H])[H])([H])[H])([H])[H])([H])[H])([H])[H])[H])N=C(N3[H])[H])[H]'
     ]
     df = pd.DataFrame({'smiles': smiles})
-    sim_df = calculate_similarity(
-        df, data_type='small_molecule',
-        similarity_metric='ecfp',
-        distance='tanimoto',
+    sim_df = molecular_similarity(
+        df, fingerprint='ecfp',
+        sim_function='tanimoto',
         field_name='smiles'
     )
     objective_df = pd.DataFrame({
@@ -27,11 +28,10 @@ def test_fingerprint_alignment():
     np.testing.assert_allclose(sim_df['metric'].tolist(),
                                objective_df['metric'].tolist(), rtol=0.001)
 
-    sim_df2 = calculate_similarity(
-        df, data_type='small_molecule',
-        similarity_metric='ecfp',
+    sim_df2 = molecular_similarity(
+        df, fingerprint='ecfp',
         field_name='smiles', threshold=0.8,
-        distance='tanimoto'
+        sim_function='tanimoto'
     )
 
     objective_df2 = pd.DataFrame({
@@ -59,8 +59,7 @@ def test_embedding_cosine_similarity():
                   0.9012307123359792, 0.03047035688324251,
                   0.34864062629605075, 0.4795065290549264])
     df_query = np.stack([a, b])
-    sim_df = calculate_similarity(df_query, similarity_metric='embedding',
-                                  distance='cosine-np')
+    sim_df = embedding_similarity(df_query, sim_function='cosine-np')
     objective_df = pd.DataFrame({
         'query': [0, 0, 1, 1],
         'target': [0, 1, 0, 1],
@@ -86,8 +85,7 @@ def test_embedding_euclidean_similarity():
                   0.9012307123359792, 0.03047035688324251,
                   0.34864062629605075, 0.4795065290549264])
     df_query = np.stack([a, b])
-    sim_df = calculate_similarity(df_query, similarity_metric='embedding',
-                                  distance='euclidean')
+    sim_df = embedding_similarity(df_query, sim_function='euclidean')
     objective_df = pd.DataFrame({
         'query': [0, 0, 1, 1],
         'target': [0, 1, 0, 1],
@@ -106,10 +104,9 @@ def test_mapchiral():
         '[H]c1c(c(c(c(c1[H])Cl)[H])N([H])c2nc3c(c(n2)OC([H])([H])C4(C(C(C(C(C4([H])[H])([H])[H])([H])[H])([H])[H])([H])[H])[H])N=C(N3[H])[H])[H]'
     ]
     df = pd.DataFrame({'smiles': smiles})
-    sim_df = calculate_similarity(
-        df, data_type='small_molecule',
-        similarity_metric='mapc',
-        distance='jaccard',
+    sim_df = molecular_similarity(
+        df, fingerprint='mapc',
+        sim_function='jaccard',
         field_name='smiles',
         threshold=0.
     )
@@ -133,10 +130,9 @@ def test_maccs():
         '[H]c1c(c(c(c(c1[H])Cl)[H])N([H])c2nc3c(c(n2)OC([H])([H])C4(C(C(C(C(C4([H])[H])([H])[H])([H])[H])([H])[H])([H])[H])[H])N=C(N3[H])[H])[H]'
     ]
     df = pd.DataFrame({'smiles': smiles})
-    sim_df = calculate_similarity(
-        df, data_type='small_molecule',
-        similarity_metric='maccs',
-        distance='tanimoto',
+    sim_df = molecular_similarity(
+        df, fingerprint='maccs',
+        sim_function='tanimoto',
         field_name='smiles'
     )
     objective_df = pd.DataFrame({
@@ -163,9 +159,9 @@ def test_simdf2mtx():
         '[H]c1c(c(c(c(c1[H])Cl)[H])N([H])c2nc3c(c(n2)OC([H])([H])C4(C(C(C(C(C4([H])[H])([H])[H])([H])[H])([H])[H])([H])[H])[H])N=C(N3[H])[H])[H]'
     ]
     df = pd.DataFrame({'smiles': smiles})
-    sim_df = calculate_similarity(
-        df, data_type='small_molecule', similarity_metric='ecfp',
-        field_name='smiles', distance='tanimoto'
+    sim_df = molecular_similarity(
+        df, fingerprint='ecfp',
+        field_name='smiles', sim_function='tanimoto'
     )
     mtx = sim_df2mtx(sim_df, boolean_out=False).toarray()
     np.testing.assert_allclose(mtx, objective, rtol=0.001)
