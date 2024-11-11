@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from hestia.similarity import (sequence_similarity, molecular_similarity,
+from hestia.similarity import (sequence_similarity_mmseqs,
+                               sequence_similarity_needle,
+                               molecular_similarity,
                                embedding_similarity,
                                protein_structure_similarity)
 from hestia.partition import random_partition, ccpart, graph_part
@@ -33,9 +35,11 @@ class SimilarityArguments:
         representation: Optional[str] = None,
         prefilter: Optional[bool] = None,
         sim_function: Optional[str] = None,
+        alignment_algorithm: Optional[str] = None,
         query_embds: Optional[np.ndarray] = None,
         target_embds: Optional[np.ndarray] = None,
-        target_df: Optional[pd.DataFrame] = None
+        target_df: Optional[pd.DataFrame] = None,
+        needle_config: Optional[dict] = None
     ):
         self.data_type = data_type
         self.field_name = field_name
@@ -55,6 +59,17 @@ class SimilarityArguments:
             self.denominator = (denominator if denominator is None
                                 else 'n_aligned')
             self.prefilter = (False if prefilter is None else True)
+            self.alignment_algorithm = ('mmseqs' if alignment_algorithm is None
+                                        else alignment_algorithm)
+            if alignment_algorithm == 'needle':
+                self.needle_config = {
+                    "gapopen": 10,
+                    "gapextend": 0.5,
+                    "endweight": True,
+                    "endopen": 10,
+                    "endextend": 0.5,
+                    "matrix": "EBLOSUM62"
+                } if needle_config is None else needle_config
             if ('dna' in self.data_type.lower() or
                 'RNA' in self.data_type.lower() or
                'nucl' in self.data_type.lower()):
@@ -193,16 +208,31 @@ class HestiaDatasetGenerator:
         if self.sim_args is None:
             self.sim_args = sim_args
         if 'sequence' in sim_args.data_type:
-            sim_df = sequence_similarity(
-                df_query=self.data, df_target=sim_args.target_df,
-                field_name=sim_args.field_name,
-                prefilter=sim_args.prefilter, denominator=sim_args.denominator,
-                is_nucleotide=sim_args.is_nucleotide,
-                threshold=sim_args.min_threshold,
-                threads=sim_args.threads,
-                save_alignment=sim_args.save_alignment,
-                filename=sim_args.filename,
-                verbose=sim_args.verbose)
+            if sim_args.alignment_algorithm == 'mmseqs':
+                sim_df = sequence_similarity_mmseqs(
+                    df_query=self.data, df_target=sim_args.target_df,
+                    field_name=sim_args.field_name,
+                    prefilter=sim_args.prefilter,
+                    denominator=sim_args.denominator,
+                    is_nucleotide=sim_args.is_nucleotide,
+                    threshold=sim_args.min_threshold,
+                    threads=sim_args.threads,
+                    save_alignment=sim_args.save_alignment,
+                    filename=sim_args.filename,
+                    verbose=sim_args.verbose)
+            elif sim_args.alignment_algorithm == 'needle':
+                sim_df = sequence_similarity_mmseqs(
+                    df_query=self.data, df_target=sim_args.target_df,
+                    field_name=sim_args.field_name,
+                    denominator=sim_args.denominator,
+                    is_nucleotide=sim_args.is_nucleotide,
+                    config=sim_args.needle_config,
+                    threshold=sim_args.min_threshold,
+                    threads=sim_args.threads,
+                    save_alignment=sim_args.save_alignment,
+                    filename=sim_args.filename,
+                    verbose=sim_args.verbose
+                )
         elif 'protein_structure' in sim_args.data_type:
             sim_df = protein_structure_similarity(
                 df_query=self.data, df_target=sim_args.target_df,
