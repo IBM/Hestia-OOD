@@ -167,7 +167,7 @@ generator.compare_models(results, statistical_test='wilcoxon')
 Calculating pairwise similarity between the entities within a DataFrame `df_query` or between two DataFrames `df_query` and `df_target` can be achieved through the `calculate_similarity` function:
 
 ```python
-from hestia.similarity import calculate_similarity
+from hestia.similarity import sequence_similarity_mmseqs
 import pandas as pd
 
 df_query = pd.read_csv('example.csv')
@@ -175,8 +175,7 @@ df_query = pd.read_csv('example.csv')
 # The CSV file needs to have a column describing the entities, i.e., their sequence, their SMILES, or a path to their PDB structure.
 # This column corresponds to `field_name` in the function.
 
-sim_df = calculate_similarity(df_query, species='protein', similarity_metric='mmseqs+prefilter',
-                              field_name='sequence')
+sim_df = sequence_similarity_mmseqs(df_query, field_name='sequence', prefilter=True)
 ```
 
 More details about similarity calculation can be found in the [Similarity calculation documentation](https://ibm.github.io/Hestia-OOD/similarity/).
@@ -186,13 +185,12 @@ More details about similarity calculation can be found in the [Similarity calcul
 Clustering the entities within a DataFrame `df` can be achieved through the `generate_clusters` function:
 
 ```python
-from hestia.similarity import calculate_similarity
+from hestia.similarity import sequence_similarity_mmseqs
 from hestia.clustering import generate_clusters
 import pandas as pd
 
 df = pd.read_csv('example.csv')
-sim_df = calculate_similarity(df, species='protein', similarity_metric='mmseqs+prefilter',
-                              field_name='sequence')
+sim_df = sequence_similarity_mmseqs(df, field_name='sequence')
 clusters_df = generate_clusters(df, field_name='sequence', sim_df=sim_df,
                                 cluster_algorithm='CDHIT')
 ```
@@ -205,12 +203,13 @@ There are three clustering algorithms currently supported: `CDHIT`, `greedy_cove
 Partitioning the entities within a DataFrame `df` into a training and an evaluation subsets can be achieved through 4 different functions: `ccpart`, `graph_part`, `reduction_partition`, and `random_partition`. An example of how `cc_part` would be used is:
 
 ```python
+from hestia.similarity import sequence_similarity_mmseqs
 from hestia.partition import ccpart
 import pandas as pd
 
 df = pd.read_csv('example.csv')
-train, test = cc_part(df, species='protein', similarity_metric='mmseqs+prefilter',
-                      field_name='sequence', threshold=0.3, test_size=0.2)
+sim_df = sequence_similarity_mmseqs(df, field_name='sequence')
+train, test = cc_part(df, threshold=0.3, test_size=0.2)
 
 train_df = df.iloc[train, :]
 test_df = df.iloc[test, :]
