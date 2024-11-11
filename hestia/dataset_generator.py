@@ -337,7 +337,7 @@ class HestiaDatasetGenerator:
             },
             'similarity_metric': {
                 'data_type': sim_args.data_type,
-                'similarity_metric': sim_args.similarity_metric,
+                'alignment_algorithm': sim_args.alignment_algorithm,
                 'min_threshold': sim_args.min_threshold,
                 'distance': sim_args.distance,
                 'bits': sim_args.bits,
