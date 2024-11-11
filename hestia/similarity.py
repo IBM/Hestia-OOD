@@ -651,7 +651,8 @@ def sequence_similarity_peptides(
                         f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
                         f'{tmp_dir}/tmp', '--alignment-mode', '3',
                         '--seq-id-mode', denominator, '--search-type', '1',
-                        '--prefilter-mode', '2', '-s', '7.5', '-v', mmseqs_v,
+                        '--prefilter-mode', '2', '-s', '7.5',
+                        '-v', str(mmseqs_v),
                         '--threads', str(threads)])
 
         file = os.path.join(tmp_dir, 'alignments.tab')
