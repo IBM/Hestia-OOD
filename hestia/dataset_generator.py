@@ -335,17 +335,7 @@ class HestiaDatasetGenerator:
                 'random_state': random_state,
                 'n_partitions': n_partitions
             },
-            'similarity_metric': {
-                'data_type': sim_args.data_type,
-                'alignment_algorithm': sim_args.alignment_algorithm,
-                'min_threshold': sim_args.min_threshold,
-                'distance': sim_args.distance,
-                'bits': sim_args.bits,
-                'radius': sim_args.radius,
-                'denominator': sim_args.denominator,
-                'representation': sim_args.representation,
-                'needle_config': sim_args.needle_config
-            }
+            'similarity_metric': vars(sim_args)
         }
         self.partitions = {}
         if self.sim_df is None:
