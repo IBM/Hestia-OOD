@@ -28,14 +28,13 @@ class SimilarityArguments:
         verbose: int = 0,
         save_alignment: bool = False,
         filename: Optional[str] = 'alignment',
-        distance: Optional[str] = None,
+        sim_function: Optional[str] = None,
         bits: Optional[int] = None,
         radius: Optional[int] = None,
         fingerprint: Optional[str] = None,
         denominator: Optional[str] = None,
         representation: Optional[str] = None,
         prefilter: Optional[bool] = None,
-        sim_function: Optional[str] = None,
         alignment_algorithm: Optional[str] = None,
         query_embds: Optional[np.ndarray] = None,
         target_embds: Optional[np.ndarray] = None,
@@ -86,8 +85,8 @@ class SimilarityArguments:
         elif self.data_type == 'embedding':
             if query_embds is None:
                 raise ValueError('Query embds need to be provided for embedding similarity.')
-            self.distance = (distance if distance is None
-                             else 'cosine')
+            self.sim_function = (sim_function if sim_function is None
+                                 else 'cosine')
             self.query_embds = query_embds
             self.target_embds = target_embds
         else:
