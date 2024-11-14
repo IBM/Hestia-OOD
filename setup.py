@@ -24,14 +24,6 @@ setup(
     author_email='raul.fernandezdiaz@ucdconnect.ie',
     python_requires='>=3.9',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
     ],
     description="Suite of tools for analysing the independence between training and evaluation biosequence datasets and to generate new generalisation-evaluating hold-out partitions",
     entry_points={
