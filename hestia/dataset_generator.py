@@ -56,7 +56,7 @@ class SimilarityArguments:
             self.fingerprint = ('ecfp' if fingerprint is None else fingerprint)
             self.sim_function = ('tanimoto' if sim_function is None else sim_function)
         elif 'sequence' in self.data_type:
-            self.denominator = (denominator if denominator is None
+            self.denominator = (denominator if denominator is not None
                                 else 'n_aligned')
             self.prefilter = (False if prefilter is None else True)
             self.alignment_algorithm = ('mmseqs' if alignment_algorithm is None
@@ -77,16 +77,16 @@ class SimilarityArguments:
             else:
                 self.is_nucleotide = False
         elif self.data_type == 'protein_structure':
-            self.denominator = (denominator if denominator is None
+            self.denominator = (denominator if denominator is not None
                                 else 'n_aligned')
-            self.representation = (representation if representation is None
+            self.representation = (representation if representation is not None
                                    else '3di+aa')
             self.prefilter = (False if prefilter is None else prefilter)
         elif self.data_type == 'embedding':
             if query_embds is None:
                 raise ValueError('Query embds need to be provided for embedding similarity.')
-            self.sim_function = (sim_function if sim_function is None
-                                 else 'cosine')
+            self.sim_function = (sim_function if sim_function is not None
+                                 else 'cosine-np')
             self.query_embds = query_embds
             self.target_embds = target_embds
         else:
