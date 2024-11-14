@@ -9,7 +9,7 @@ from hestia.utils.bulk_similarity_metrics import (
     bulk_cosine_similarity, bulk_binary_manhattan_similarity,
     bulk_binary_euclidean_similarity, bulk_euclidean, bulk_manhattan,
     bulk_np_tanimoto, bulk_np_dice, bulk_np_rogot_goldberg, bulk_np_sokal,
-    bulk_np_jaccard)
+    bulk_np_jaccard, bulk_canberra)
 
 BULK_SIM_METRICS = {
     'cosine-np': bulk_cosine_similarity,
@@ -21,5 +21,6 @@ BULK_SIM_METRICS = {
     'binary_euclidean': bulk_binary_euclidean_similarity,
     'jaccard': bulk_np_jaccard,
     'manhattan': bulk_manhattan,
-    'euclidean': bulk_euclidean
+    'euclidean': bulk_euclidean,
+    'canberra': bulk_canberra
 }
