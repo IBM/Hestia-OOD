@@ -372,7 +372,7 @@ class HestiaDatasetGenerator:
             'similarity_metric': vars(sim_args)
         }
         self.partitions = {}
-        if sim_df is None:
+        if sim_df is not None:
             sim_args.min_threshold = min_threshold
             sim_df = self.calculate_similarity(sim_args)
         print('Calculating partitions...')
