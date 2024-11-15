@@ -278,6 +278,7 @@ class HestiaDatasetGenerator:
                 filename=sim_args.filename
             )
         print('Similarity successfully calculated!')
+        self.sim_df = sim_df
         return sim_df
 
     def load_similarity(self, output_path: str):
@@ -359,22 +360,13 @@ class HestiaDatasetGenerator:
         valid_set = partitions[0.3]['valid']
         test_set = partitions[0.3]['test']
         """
-        self.metadata = {
-            'partition_algorithm': {
-                'algorithm': partition_algorithm,
-                'min_threshold': min_threshold,
-                'threshold_step': threshold_step,
-                'test_size': test_size,
-                'valid_size': valid_size,
-                'random_state': random_state,
-                'n_partitions': n_partitions
-            },
-            'similarity_metric': vars(sim_args)
-        }
         self.partitions = {}
-        if sim_df is not None:
+        print(self.sim_df)
+        if sim_df is None and self.sim_df is None:
             sim_args.min_threshold = min_threshold
             sim_df = self.calculate_similarity(sim_args)
+        elif sim_df is None and self.sim_df is not None:
+            sim_df = self.sim_df
         print('Calculating partitions...')
 
         if partition_algorithm not in ['ccpart', 'graph_part']:
@@ -434,6 +426,24 @@ class HestiaDatasetGenerator:
             'train': train_random[0],
             'valid': train_random[1],
             'test': random[1]
+        }
+        sim_metadata = vars(sim_args)
+        if sim_args.data_type == 'embedding':
+            del sim_metadata['query_embds']
+            if 'target_embds' in sim_metadata:
+                del sim_metadata['target_embds']
+
+        self.metadata = {
+            'partition_algorithm': {
+                'algorithm': partition_algorithm,
+                'min_threshold': min_threshold,
+                'threshold_step': threshold_step,
+                'test_size': test_size,
+                'valid_size': valid_size,
+                'random_state': random_state,
+                'n_partitions': n_partitions
+            },
+            'similarity_metric': sim_metadata
         }
         print('Partitions successfully calculated!')
 
