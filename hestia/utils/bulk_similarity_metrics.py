@@ -127,5 +127,6 @@ def bulk_canberra(u: np.ndarray, bulk: np.ndarray) -> np.ndarray:
     out = np.zeros(bulk.shape[0])
     for i in range(bulk.shape[0]):
         for j in range(bulk.shape[1]):
-            out[i] += np.abs((u[j] - bulk[i, j]) / (u[j] + bulk[i, j]))
+            out[i] += np.abs((u[j] - bulk[i, j]) /
+                             (np.abs(u[j]) + np.abs(bulk[i, j])))
     return out
