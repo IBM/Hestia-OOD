@@ -168,8 +168,8 @@ def molecular_similarity(
     df_query: pd.DataFrame,
     df_target: pd.DataFrame = None,
     field_name: str = 'smiles',
-    sim_function: str = 'tanimoto',
-    fingerprint: str = 'ecfp',
+    sim_function: str = 'jaccard',
+    fingerprint: str = 'mapc',
     bits: int = 1024,
     radius: int = 2,
     threshold: float = 0.0,
@@ -191,15 +191,15 @@ def molecular_similarity(
     :type df_target: pd.DataFrame, optional
     :param field_name: Column name in `df_query` and `df_target` that contains SMILES strings. Defaults to 'smiles'.
     :type field_name: str, optional
-    :param sim_function: Similarity function to use for pairwise comparison. Options include 'tanimoto', 'dice', 
-                         'sokal', 'rogot-goldberg', and 'cosine'. Defaults to 'tanimoto'.
+    :param sim_function: Similarity function to use for pairwise comparison. Options include 'tanimoto', 'dice',
+                         'sokal', 'rogot-goldberg', 'jaccard', 'canberra', and 'cosine'. Defaults to 'jaccard'.
     :type sim_function: str, optional
-    :param fingerprint: Type of fingerprint to use, options are 'ecfp' (Extended-Connectivity Fingerprint), 
-                        'maccs' (MACCS keys), or 'mapc' (requires the mapchiral package). Defaults to 'ecfp'.
+    :param fingerprint: Type of fingerprint to use, options are 'ecfp' (Extended-Connectivity Fingerprint),
+                        'maccs' (MACCS keys), 'mapc' (requires the mapchiral package), or `lipinski. Defaults to 'mapc'.
     :type fingerprint: str, optional
-    :param bits: Size of the fingerprint bit vector, applicable to `ecfp`. Defaults to 1024.
+    :param bits: Size of the fingerprint bit vector, applicable to `ecfp` and `mapc`. Defaults to 1024.
     :type bits: int, optional
-    :param radius: Radius for the ECFP fingerprint, applicable to `ecfp`. Defaults to 2.
+    :param radius: Radius for the ECFP fingerprint, applicable to `ecfp` and `mapc`. Defaults to 2.
     :type radius: int, optional
     :param threshold: Minimum similarity score required to include a pair in the results. Defaults to 0.0.
     :type threshold: float, optional
@@ -221,7 +221,6 @@ def molecular_similarity(
              similarity score above the specified `threshold`.
     :rtype: pd.DataFrame
     """
-
     try:
         from rdkit import Chem
         from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
@@ -280,6 +279,23 @@ def molecular_similarity(
 
         if sim_function != 'jaccard':
             raise ValueError('MAPc can only be used with `jaccard`.')
+
+    elif fingerprint == 'lipinski':
+        import rdkit.Chem.Lipinski as Lip
+
+        def _get_fp(smiles: str):
+            fp = []
+            mol = Chem.MolFromSmiles(smiles)
+            fp.append(Lip.NumHAcceptors(mol))
+            fp.append(Lip.NumHDonors(mol))
+            fp.append(Lip.NumHeteroatoms(mol))
+            fp.append(Lip.NumRotatableBonds(mol))
+            fp.append(Lip.NumSaturatedCarbocycles(mol))
+            fp.append(Lip.RingCount(mol))
+            return fp
+
+        if sim_function != 'canberra':
+            raise ValueError("Lipinski can only be used with sim_function='canberra'")
 
     if sim_function in BULK_SIM_METRICS:
         bulk_sim_metric = BULK_SIM_METRICS[sim_function]

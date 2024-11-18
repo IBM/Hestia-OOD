@@ -190,7 +190,7 @@ def graph_part(
     #         representation=representation, config=config
     #     )
 
-    mtx = sim_df2mtx(sim_df, len(df))
+    mtx = sim_df2mtx(sim_df, len(df), boolean_out=False)
     if filter_smaller:
         mtx = mtx >= threshold
     else:
@@ -237,6 +237,8 @@ def graph_part(
     E_f = _neighbour_analysis(mtx, clusters)
     clus_labs, clusters_sizes = np.unique(clusters[removed],
                                           return_counts=True)
+    if E_f.sum() == 0:
+        re_clusters = clusters
 
     while E_f.sum() > 0:
         re_clusters, E_f = _cluster_reassignment(mtx, clusters, removed)
