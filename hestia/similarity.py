@@ -221,25 +221,24 @@ def molecular_similarity(
              similarity score above the specified `threshold`.
     :rtype: pd.DataFrame
     """
-    if fingerprint in ['ecfp', 'maccs', 'lipinski']:
-        try:
-            from rdkit import Chem
-            from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
-            from rdkit.DataStructs import (
-                BulkTanimotoSimilarity, BulkDiceSimilarity,
-                BulkSokalSimilarity, BulkRogotGoldbergSimilarity,
-                BulkCosineSimilarity
-            )
-        except ModuleNotFoundError:
-            raise ImportError("This function requires RDKit to be installed.")
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
+        from rdkit.DataStructs import (
+            BulkTanimotoSimilarity, BulkDiceSimilarity,
+            BulkSokalSimilarity, BulkRogotGoldbergSimilarity,
+            BulkCosineSimilarity
+        )
+    except ModuleNotFoundError:
+        raise ImportError("This function requires RDKit to be installed.")
 
-        BULK_SIM_METRICS.update({
-            'tanimoto': BulkTanimotoSimilarity,
-            'dice': BulkDiceSimilarity,
-            'sokal': BulkSokalSimilarity,
-            'rogot-goldberg': BulkRogotGoldbergSimilarity,
-            'cosine': BulkCosineSimilarity
-        })
+    BULK_SIM_METRICS.update({
+        'tanimoto': BulkTanimotoSimilarity,
+        'dice': BulkDiceSimilarity,
+        'sokal': BulkSokalSimilarity,
+        'rogot-goldberg': BulkRogotGoldbergSimilarity,
+        'cosine': BulkCosineSimilarity
+    })
 
     if fingerprint == 'ecfp':
         fpgen = rdFingerprintGenerator.GetMorganGenerator(
