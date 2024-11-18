@@ -396,7 +396,9 @@ class HestiaDatasetGenerator:
                         sim_df=sim_df, verbose=2,
                         n_parts=n_partitions
                     )
-                except RuntimeError:
+
+                except RuntimeError as e:
+                    print(e)
                     continue
 
             if n_partitions is None:
