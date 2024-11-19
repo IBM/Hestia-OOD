@@ -346,9 +346,11 @@ def molecular_similarity(
     if isinstance(query_fps, np.ndarray):
         max_complex = query_fps.shape[0] * target_fps.shape[0]
         query_size = query_fps.shape[0]
+        target_size = target_fps.shape[0]
     else:
         max_complex = len(query_fps) * len(target_fps)
         query_size = len(query_fps)
+        target_size = len(target_fps)
 
     chunks_target = (len(df_target) // chunk_size) + 1
     metrics = np.zeros((max_complex), dtype=np.float16)
@@ -396,7 +398,7 @@ def molecular_similarity(
                 for idx_target, metric in enumerate(result):
                     target_pointer = int((idx * chunk_size) + idx_target)
                     query_pointer = int(chunk)
-                    pointer = (query_pointer * query_size) + target_pointer
+                    pointer = (query_pointer * target_size) + target_pointer
                     if metric < threshold:
                         continue
                     queries[pointer] = query_pointer
