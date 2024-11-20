@@ -292,7 +292,7 @@ def molecular_similarity(
             fp.append(Lip.NumRotatableBonds(mol))
             fp.append(Lip.NumSaturatedCarbocycles(mol))
             fp.append(Lip.RingCount(mol))
-            return fp
+            return np.array(fp)
 
         if sim_function != 'canberra':
             raise ValueError("Lipinski can only be used with sim_function='canberra'")
@@ -340,9 +340,10 @@ def molecular_similarity(
     else:
         target_fps = _parallel_fps(df_target[field_name], 'Target FPs')
 
-    if fingerprint == 'mapc':
+    if fingerprint == 'mapc' or fingerprint == 'lipinski':
         query_fps = np.stack(query_fps)
         target_fps = np.stack(target_fps)
+
     if isinstance(query_fps, np.ndarray):
         max_complex = query_fps.shape[0] * target_fps.shape[0]
         query_size = query_fps.shape[0]
