@@ -80,6 +80,7 @@ def embedding_similarity(
     sim_function: Union[str, Callable] = 'cosine',
     threads: int = cpu_count(),
     threshold: float = 0.0,
+    verbose: int = 3,
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
@@ -120,7 +121,11 @@ def embedding_similarity(
     chunk_size = threads * 1_000
     chunks_target = (len(target_embds) // chunk_size) + 1
     queries, targets, metrics = [], [], []
-    pbar = tqdm(range(len(query_embds)))
+    if verbose > 1:
+        pbar = tqdm(range(len(query_embds)), desc='Similarity calculation',
+                    unit_scale=True)
+    else:
+        pbar = range(len(query_embds))
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for chunk in pbar:
@@ -174,7 +179,7 @@ def molecular_similarity(
     radius: int = 2,
     threshold: float = 0.0,
     threads: int = cpu_count(),
-    verbose: int = 0,
+    verbose: int = 3,
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
@@ -316,7 +321,11 @@ def molecular_similarity(
             for mol in mols:
                 job = executor.submit(_get_fp, mol)
                 jobs.append(job)
-            pbar = tqdm(jobs, desc=mssg)
+            if verbose > 1:
+                pbar = tqdm(jobs, desc=mssg, unit_scale=True,
+                            mininterval=0.5, maxinterval=2)
+            else:
+                pbar = jobs
             for job in pbar:
                 if job.exception() is not None:
                     raise RuntimeError(job.exception())
@@ -331,8 +340,15 @@ def molecular_similarity(
         raise ValueError(f'{field_name} not found in target DataFrame')
 
     if verbose > 1:
-        print(f'Calculating molecular similarities using {fingerprint}-{radius * 2}',
-              f'with {bits:,} bits and {sim_function} index...')\
+        if fingerprint == 'lipinski':
+            print(f'Calculating molecular similarities using {fingerprint}',
+                  f'with {6:,} bits and {sim_function} index...')
+        elif fingerprint == 'maccs':
+            print(f'Calculating molecular similarities using {fingerprint}',
+                  f'with {166:,} bits and {sim_function} index...')
+        else:
+            print(f'Calculating molecular similarities using {fingerprint}',
+                  f'with {bits:,} bits, radius {radius} and {sim_function} index...')
 
     query_mols = df_query[field_name].tolist()
     chunk_size = threads * 1_000
@@ -371,9 +387,10 @@ def molecular_similarity(
 
     queries = np.zeros_like(metrics, dtype=index_type)
     targets = np.zeros_like(metrics, dtype=index_type)
+
     if verbose > 1:
-        print()
-        pbar = tqdm(range(query_size), desc='Similarity calculation')
+        pbar = tqdm(range(query_size), desc='Similarity calculation',
+                    unit_scale=True)
     else:
         pbar = range(query_size)
 
