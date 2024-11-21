@@ -253,6 +253,9 @@ def molecular_similarity(
             else:
                 fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
             return fp
+        if sim_function == 'jaccard':
+            print('Warning: jaccard similarity with ecfp fp substituted by tanimoto')
+            sim_function = 'tanimoto'
 
     elif fingerprint == 'maccs':
 
