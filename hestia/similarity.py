@@ -158,9 +158,8 @@ def embedding_similarity(
 
     df = pd.DataFrame({'query': queries, 'target': targets,
                        'metric': metrics})
-    if sim_function not in ['cosine-np']:
+    if sim_function in ['manhattan', 'euclidean', 'canberra']:
         df.metric = df.metric.map(lambda x: 1 / (1 + x))
-
     df = df[df['metric'] > threshold]
     if save_alignment:
         if filename is None:
@@ -431,6 +430,9 @@ def molecular_similarity(
     queries = queries[mask]
     targets = targets[mask]
     metrics = metrics[mask]
+
+    if sim_function in ['manhattan', 'euclidean', 'canberra']:
+        df.metric = df.metric.map(lambda x: 1 / (1 + x))
 
     df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
     df = df[df['metric'] > threshold]
