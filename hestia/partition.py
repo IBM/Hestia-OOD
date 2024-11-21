@@ -55,27 +55,13 @@ def ccpart(
     filter_smaller: Optional[bool] = True
 ) -> Union[Tuple[list, list, list], Tuple[list, list, list, list]]:
 
-    train, test, valid = [], [], []
     size = len(df)
-
-    if label_name is not None:
-        labels = df[label_name].to_numpy()
-    else:
-        labels = None
-
     expected_test = test_size * size
     expected_valid = valid_size * size
 
-    # if sim_df is None:
-    #     sim_df = calculate_similarity(
-    #         df, df, data_type=data_type,
-    #         similarity_metric=similarity_metric,
-    #         field_name=field_name, threshold=threshold,
-    #         threads=threads, verbose=verbose,
-    #         save_alignment=False, filename=None, distance=distance,
-    #         bits=bits, denominator=denominator, radius=radius,
-    #         representation=representation, config=config
-    #     )
+    labels = df[label_name].to_numpy() if label_name else None
+
+    # Generate cluster assignments
     cluster_df = generate_clusters(df, field_name=field_name,
                                    threshold=threshold,
                                    verbose=verbose,
@@ -83,49 +69,44 @@ def ccpart(
                                    sim_df=sim_df,
                                    filter_smaller=filter_smaller)
 
-    partition_labs = cluster_df.cluster.tolist()
-    parts, lengths = np.unique(partition_labs, return_counts=True)
-    sorted_inds = np.argsort(lengths)
+    partition_labs = cluster_df.cluster.to_numpy()
+    unique_parts, part_counts = np.unique(partition_labs, return_counts=True)
+    sorted_parts = unique_parts[np.argsort(part_counts)]
 
-    for ind in sorted_inds:
-        value = np.argwhere(partition_labs == parts[ind]).tolist()
-        value = [item[0] for item in value]
-        if _balanced_labels(labels, value, test, test_size, size):
-            test.extend(value)
+    # Initialize empty lists for train, test, and valid sets
+    test = []
+    valid = []
+    train = []
 
-    for ind in sorted_inds:
-        value = np.argwhere(partition_labs == parts[ind]).tolist()
-        value = [item[0] for item in value]
-        skip = False
-        for element in value:
-            if element in test:
-                skip = True
-                break
+    # Precompute indices for test and valid partitions
+    for part in sorted_parts:
+        part_indices = np.where(partition_labs == part)[0]
 
-        if skip:
-            continue
+        if _balanced_labels(labels, part_indices, test, test_size, size):
+            test.extend(part_indices)
 
-        if (_balanced_labels(labels, value, valid, valid_size, size)
-           and valid_size > 0):
-            valid.extend(value)
-        else:
-            train.extend(value)
+    # Avoid test data points in valid set
+    for part in sorted_parts:
+        part_indices = np.where(partition_labs == part)[0]
+        remaining_indices = [i for i in part_indices if i not in test]
 
+        if remaining_indices:
+            if _balanced_labels(labels, remaining_indices, valid, valid_size, size) and valid_size > 0:
+                valid.extend(remaining_indices)
+            else:
+                train.extend(remaining_indices)
+
+    # Verbose output
     if verbose > 0:
-        print('Proportion train:',
-              f'{(len(train) / len(df)) * 100:.2f} %')
-        print('Proportion test:',
-              f'{(len(test) /  len(df)) * 100:.2f} %')
-        print('Proportion valid:',
-              f'{(len(valid) /  len(df)) * 100:.2f} %')
+        print(f'Proportion train: {(len(train) / size) * 100:.2f} %')
+        print(f'Proportion test: {(len(test) / size) * 100:.2f} %')
+        print(f'Proportion valid: {(len(valid) / size) * 100:.2f} %')
 
+    # Warnings if the sizes of partitions are smaller than expected
     if len(test) < expected_test * 0.9:
-        print('Warning proportion of test partition is smaller than expected:',
-              f'{len(test) /  len(df) * 100:.2f} %')
+        print(f'Warning: Proportion of test partition is smaller than expected: {(len(test) / size) * 100:.2f} %')
     if len(valid) < expected_valid * 0.9:
-        print('Warning proportion of validation partition is smaller',
-              'than expected:',
-              f'{len(valid) /  len(df) * 100:.2f} %')
+        print(f'Warning: Proportion of validation partition is smaller than expected: {(len(valid) / size) * 100:.2f} %')
 
     if valid_size > 0:
         return train, test, valid, partition_labs
