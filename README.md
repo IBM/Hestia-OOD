@@ -123,13 +123,21 @@ from hestia.dataset_generator import HestiaDatasetGenerator, SimilarityArguments
 generator = HestiaDatasetGenerator(df)
 
 # Define the similarity arguments (for more info see the documentation page https://ibm.github.io/Hestia-OOD/datasetgenerator)
-args = SimilarityArguments(
+
+# Similarity arguments for protein similarity
+prot_args = SimilarityArguments(
     data_type='protein', field_name='sequence',
     similarity_metric='mmseqs2+prefilter', verbose=3
 )
 
+# Similarity arguments for molecular similarity
+mol_args = SimilarityArguments(
+    data_type='small molecule', field_name='SMILES',
+    fingeprint='mapc', radius=2, bits=2048
+)
+
 # Calculate the similarity
-generator.calculate_similarity(args)
+generator.calculate_similarity(prot_args)
 
 # Calculate partitions
 generator.calculate_partitions(min_threshold=0.3,

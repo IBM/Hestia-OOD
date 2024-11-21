@@ -288,13 +288,14 @@ def molecular_similarity(
 
         def _get_fp(smiles: str):
             fp = []
-            mol = Chem.MolFromSmiles(smiles)
+            mol = Chem.MolFromSmiles(smiles, sanitize=True)
             fp.append(Lip.NumHAcceptors(mol))
             fp.append(Lip.NumHDonors(mol))
             fp.append(Lip.NumHeteroatoms(mol))
             fp.append(Lip.NumRotatableBonds(mol))
             fp.append(Lip.NumSaturatedCarbocycles(mol))
             fp.append(Lip.RingCount(mol))
+
             return np.array(fp)
 
         if sim_function != 'canberra':
