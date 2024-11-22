@@ -1,4 +1,4 @@
-import gzip
+import pickle
 import json
 from multiprocessing import cpu_count
 from typing import Dict, List, Optional, Tuple, Union
@@ -139,9 +139,9 @@ class HestiaDatasetGenerator:
         :param data_path: Path to saved partition indexes.
         :type data_path: str
         """
-        with gzip.open(data_path, 'r') as fin:
-            input = json.loads(fin.read().decode('utf-8'))
-
+        # with gzip.open(data_path, 'r') as fin:
+        #     input = json.loads(fin.read().decode('utf-8'))
+        input = pickle.load(open(data_path, 'rb'))
         if 'partitions' in input:
             self.partitions = input['partitions']
         else:
@@ -195,8 +195,7 @@ class HestiaDatasetGenerator:
             'partitions': self.partitions,
             'metadata': self.metadata
         }
-        with gzip.open(output_path, 'w') as fout:
-            fout.write(json.dumps(output).encode('utf-8'))
+        pickle.dump(output, open(output_path, 'wb'))
 
     def calculate_similarity(self, sim_args: SimilarityArguments) -> pd.DataFrame:
         """Calculate pairwise similarity between all the elements in the dataset.
