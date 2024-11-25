@@ -97,7 +97,7 @@ class HestiaDatasetGenerator:
     """Class for generating multiple Dataset
     partitions for generalisation evaluation.
     """
-    def __init__(self, data: pd.DataFrame):
+    def __init__(self, data: pd.DataFrame, verbose: Optional[bool] = True):
         """Initialise class
 
         :param data: DataFrame with the original data from which
@@ -108,8 +108,10 @@ class HestiaDatasetGenerator:
         self.sim_df = None
         self.partitions = None
         self.sim_args = None
-        print('Initialising Hestia Dataset Generator')
-        print(f'Number of items in data: {len(self.data):,}')
+        self.verbose = verbose
+        if self.verbose:
+            print('Initialising Hestia Dataset Generator')
+            print(f'Number of items in data: {len(self.data):,}')
 
     def get_partition(self, partition: Union[str, float]) -> dict:
         return self.partitions[partition]
@@ -203,7 +205,8 @@ class HestiaDatasetGenerator:
         :param sim_args: See similarity arguments entry.
         :type similarity_args: SimilarityArguments
         """
-        print('Calculating similarity...')
+        if self.verbose:
+            print('Calculating similarity...')
         if self.sim_args is None:
             self.sim_args = sim_args
         if 'sequence' in sim_args.data_type:
@@ -276,7 +279,8 @@ class HestiaDatasetGenerator:
                 save_alignment=sim_args.save_alignment,
                 filename=sim_args.filename
             )
-        print('Similarity successfully calculated!')
+        if self.verbose:
+            print('Similarity successfully calculated!')
         self.sim_df = sim_df
         return sim_df
 
@@ -286,9 +290,11 @@ class HestiaDatasetGenerator:
         :param output_path: File with similarity calculations.
         :type output_path: str
         """
-        print('Loading precalculated similarity...')
+        if self.verbose:
+            print('Loading precalculated similarity...')
         self.sim_df = pd.read_csv(output_path, compression='gzip')
-        print('Precalculated similarity loaded successfully!')
+        if self.verbose:
+            print('Precalculated similarity loaded successfully!')
 
     def calculate_partitions(
         self,
@@ -360,13 +366,13 @@ class HestiaDatasetGenerator:
         test_set = partitions[0.3]['test']
         """
         self.partitions = {}
-        print(self.sim_df)
         if sim_df is None and self.sim_df is None:
             sim_args.min_threshold = min_threshold
             sim_df = self.calculate_similarity(sim_args)
         elif sim_df is None and self.sim_df is not None:
             sim_df = self.sim_df
-        print('Calculating partitions...')
+        if self.verbose:
+            print('Calculating partitions...')
 
         if partition_algorithm not in ['ccpart', 'graph_part']:
             raise ValueError(
@@ -446,7 +452,8 @@ class HestiaDatasetGenerator:
             },
             'similarity_metric': sim_metadata
         }
-        print('Partitions successfully calculated!')
+        if self.verbose:
+            print('Partitions successfully calculated!')
 
     def generate_datasets(self, dataset_type: str, threshold: float) -> dict:
         ds = {}

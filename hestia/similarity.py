@@ -684,13 +684,13 @@ def sequence_similarity_peptides(
 
         subprocess.run(['mmseqs', 'createdb', '--dbtype',
                         dbtype, db_query_file, '-v', '1',
-                        f'{tmp_dir}/db_query'])
+                        f'{tmp_dir}/n_db_query'])
         subprocess.run(['mmseqs', 'createdb', '--dbtype',
                         dbtype, db_target_file, '-v', '1',
-                        f'{tmp_dir}/db_target'])
+                        f'{tmp_dir}/n_db_target'])
 
-        subprocess.run(['mmseqs', 'search',  f'{tmp_dir}/db_query',
-                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+        subprocess.run(['mmseqs', 'search',  f'{tmp_dir}/n_db_query',
+                        f'{tmp_dir}/n_db_target', f'{tmp_dir}/n_align_db',
                         f'{tmp_dir}/tmp', '--alignment-mode', '3',
                         '--seq-id-mode', denominator, '--search-type', '1',
                         '--prefilter-mode', '2', '-s', '7.5',
@@ -698,8 +698,8 @@ def sequence_similarity_peptides(
                         '--threads', str(threads)])
 
         file = os.path.join(tmp_dir, 'alignments.tab')
-        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/db_query',
-                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/n_db_query',
+                        f'{tmp_dir}/n_db_target', f'{tmp_dir}/n_align_db',
                         '--format-mode', '4', '--threads', str(threads),
                         file, '-v', '1'])
 
@@ -718,13 +718,13 @@ def sequence_similarity_peptides(
 
         subprocess.run(['mmseqs', 'createdb', '--dbtype',
                         dbtype, db_query_file, '-v', '1',
-                        f'{tmp_dir}/db_query'])
+                        f'{tmp_dir}/m_db_query'])
         subprocess.run(['mmseqs', 'createdb', '--dbtype',
                         dbtype, db_target_file, '-v', '1',
-                        f'{tmp_dir}/db_target'])
+                        f'{tmp_dir}/m_db_target'])
 
-        subprocess.run(['mmseqs', 'search', f'{tmp_dir}/db_query',
-                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+        subprocess.run(['mmseqs', 'search', f'{tmp_dir}/m_db_query',
+                        f'{tmp_dir}/m_db_target', f'{tmp_dir}/m_align_db',
                         f'{tmp_dir}/tmp', '--alignment-mode', '3',
                         '--seq-id-mode', denominator, '--search-type', '1',
                         '--prefilter-mode', '2', '-s', '2',
@@ -734,8 +734,8 @@ def sequence_similarity_peptides(
                         '-e', '1e7'])
 
         file = os.path.join(tmp_dir, 'alignments.tab')
-        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/db_query',
-                        f'{tmp_dir}/db_target', f'{tmp_dir}/align_db',
+        subprocess.run(['mmseqs', 'convertalis', f'{tmp_dir}/m_db_query',
+                        f'{tmp_dir}/m_db_target', f'{tmp_dir}/m_align_db',
                         '--format-mode', '4', '--threads', str(threads),
                         file, '-v', '1'])
 
