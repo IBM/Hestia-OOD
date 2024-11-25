@@ -127,7 +127,7 @@ generator = HestiaDatasetGenerator(df)
 # Similarity arguments for protein similarity
 prot_args = SimilarityArguments(
     data_type='protein', field_name='sequence',
-    similarity_metric='mmseqs2+prefilter', verbose=3
+    alignment_algorithm='mmseqs2+prefilter', verbose=3
 )
 
 # Similarity arguments for molecular similarity
