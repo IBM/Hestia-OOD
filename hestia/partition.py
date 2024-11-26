@@ -252,6 +252,7 @@ def graph_part(
     o_train, o_test, o_valid = [], [], []
     test_len, valid_len = 0, 0
 
+
     if test_size > 0.0:
         train, test = [], []
         for clus in clus_labs:

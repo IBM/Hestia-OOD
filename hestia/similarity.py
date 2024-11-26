@@ -1121,7 +1121,7 @@ def _compute_needle(
         type_1, type_2 = '-sprotein1', '-sprotein2'
 
     FIDENT_CALCULATION = {
-        'n_aligned': lambda x: float(x.split('(')[1][:-3])/100,
+        'n_aligned': lambda x, q, t: float(x.split('(')[1][:-3])/100,
         'shortest': lambda x, q, t: int(x[11:].split('/')[0]) / min(q, t),
         'longest': lambda x, q, t: int(x[11:].split('/')[0]) / max(q, t)
     }[denominator]

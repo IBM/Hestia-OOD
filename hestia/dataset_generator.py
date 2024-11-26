@@ -386,7 +386,8 @@ class HestiaDatasetGenerator:
             if partition_algorithm == 'ccpart':
                 train, test, clusters = ccpart(
                     self.data,
-                    label_name=label_name, test_size=test_size,
+                    label_name=label_name,
+                    test_size=test_size,
                     threshold=th / 100,
                     sim_df=sim_df, verbose=2
                 )

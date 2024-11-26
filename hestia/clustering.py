@@ -170,6 +170,6 @@ def _connected_components_clustering(
                    'member': i} for i in range(labels.shape[0])]
     if verbose > 0:
         print('Clustering has generated:',
-              f'{n:,d} connected componentes for',
+              f'{n:,d} connected components for',
               f'{len(df):,} entities')
     return pd.DataFrame(cluster_df)
