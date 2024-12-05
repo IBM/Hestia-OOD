@@ -265,12 +265,12 @@ def molecular_similarity(
 
         def _get_fp(smile: str):
             mol = Chem.MolFromSmiles(smile)
+            fp = rdMolDescriptors.GetMACCSKeysFingerprint(mol)
             if sim_function in ['dice', 'tanimoto', 'sokal', 'rogot-goldberg',
                                 'cosine']:
-                fp = rdMolDescriptors.GetMACCSKeysFingerprint(mol)
+                return fp
             else:
-                fp = fpgen.GetFingerprintAsNumPy(mol).astype(np.int8)
-            return fp
+                return np.array(fp)
 
     elif fingerprint == 'mapc':
         try:
