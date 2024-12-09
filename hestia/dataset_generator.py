@@ -16,7 +16,7 @@ from hestia.similarity import (sequence_similarity_mmseqs,
 from hestia.partition import random_partition, ccpart, graph_part
 
 
-class SimilarityArguments:
+class SimArguments:
     """Dataclass with the inputs for similarity calculation.
     """
     def __init__(
@@ -93,7 +93,7 @@ class SimilarityArguments:
             raise NotImplementedError(f"Data type: {data_type} not implemented.")
 
 
-class HestiaDatasetGenerator:
+class HestiaGenerator:
     """Class for generating multiple Dataset
     partitions for generalisation evaluation.
     """
