@@ -408,16 +408,23 @@ class HestiaDatasetGenerator:
                     continue
 
             if n_partitions is None:
-                train_th_parts = random_partition(
-                    self.data.iloc[th_parts[0]].reset_index(drop=True),
-                    test_size=valid_size, random_state=random_state
-                )
-                self.partitions[th / 100] = {
-                    'train': train_th_parts[0],
-                    'valid': train_th_parts[1],
-                    'test': th_parts[1],
-                    'clusters': clusters
-                }
+                if valid_size > 0.:
+                    train_th_parts = random_partition(
+                        self.data.iloc[th_parts[0]].reset_index(drop=True),
+                        test_size=valid_size, random_state=random_state
+                    )
+                    self.partitions[th / 100] = {
+                        'train': train_th_parts[0],
+                        'valid': train_th_parts[1],
+                        'test': th_parts[1],
+                        'clusters': clusters
+                    }
+                else:
+                    self.partitions[th / 100] = {
+                        'train': th_parts[0],
+                        'test': th_parts[1],
+                        'clusters': clusters
+                    }
             else:
                 th_parts = [[i[0] for i in part] for part in th_parts]
                 self.partitions[th / 100] = {
