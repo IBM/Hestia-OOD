@@ -1,1 +1,1 @@
-from hestia.dataset_generator import HestiaDatasetGenerator, SimilarityArguments
+from hestia.dataset_generator import HestiaGenerator, SimArguments

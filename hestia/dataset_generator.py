@@ -16,7 +16,7 @@ from hestia.similarity import (sequence_similarity_mmseqs,
 from hestia.partition import random_partition, ccpart, graph_part
 
 
-class SimilarityArguments:
+class SimArguments:
     """Dataclass with the inputs for similarity calculation.
     """
     def __init__(
@@ -93,7 +93,7 @@ class SimilarityArguments:
             raise NotImplementedError(f"Data type: {data_type} not implemented.")
 
 
-class HestiaDatasetGenerator:
+class HestiaGenerator:
     """Class for generating multiple Dataset
     partitions for generalisation evaluation.
     """
@@ -199,11 +199,11 @@ class HestiaDatasetGenerator:
         }
         pickle.dump(output, open(output_path, 'wb'))
 
-    def calculate_similarity(self, sim_args: SimilarityArguments) -> pd.DataFrame:
+    def calculate_similarity(self, sim_args: SimArguments) -> pd.DataFrame:
         """Calculate pairwise similarity between all the elements in the dataset.
 
         :param sim_args: See similarity arguments entry.
-        :type similarity_args: SimilarityArguments
+        :type similarity_args: SimArguments
         """
         if self.verbose:
             print('Calculating similarity...')
@@ -298,7 +298,7 @@ class HestiaDatasetGenerator:
 
     def calculate_partitions(
         self,
-        sim_args: Optional[SimilarityArguments] = None,
+        sim_args: Optional[SimArguments] = None,
         sim_df: Optional[pd.DataFrame] = None,
         label_name: Optional[str] = None,
         min_threshold: Optional[float] = 0.,
@@ -317,7 +317,7 @@ class HestiaDatasetGenerator:
         :param sim_args: Object containing the similarity parameters for partitioning. This includes options for 
                         calculating sequence similarity, such as the alignment method and similarity threshold.
                         Defaults to None.
-        :type sim_args: Optional[SimilarityArguments], optional
+        :type sim_args: Optional[SimArguments], optional
         :param sim_df: Precomputed similarity DataFrame. If None, the similarity will be calculated using `sim_args`.
         :type sim_df: Optional[pd.DataFrame], optional
         :param label_name: The name of the label column for the dataset. Defaults to None.
@@ -408,16 +408,23 @@ class HestiaDatasetGenerator:
                     continue
 
             if n_partitions is None:
-                train_th_parts = random_partition(
-                    self.data.iloc[th_parts[0]].reset_index(drop=True),
-                    test_size=valid_size, random_state=random_state
-                )
-                self.partitions[th / 100] = {
-                    'train': train_th_parts[0],
-                    'valid': train_th_parts[1],
-                    'test': th_parts[1],
-                    'clusters': clusters
-                }
+                if valid_size > 0.:
+                    train_th_parts = random_partition(
+                        self.data.iloc[th_parts[0]].reset_index(drop=True),
+                        test_size=valid_size, random_state=random_state
+                    )
+                    self.partitions[th / 100] = {
+                        'train': train_th_parts[0],
+                        'valid': train_th_parts[1],
+                        'test': th_parts[1],
+                        'clusters': clusters
+                    }
+                else:
+                    self.partitions[th / 100] = {
+                        'train': th_parts[0],
+                        'test': th_parts[1],
+                        'clusters': clusters
+                    }
             else:
                 th_parts = [[i[0] for i in part] for part in th_parts]
                 self.partitions[th / 100] = {
