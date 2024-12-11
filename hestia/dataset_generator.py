@@ -58,7 +58,7 @@ class SimArguments:
         elif 'sequence' in self.data_type:
             self.denominator = (denominator if denominator is not None
                                 else 'n_aligned')
-            self.prefilter = (False if prefilter is None else True)
+            self.prefilter = (False if prefilter is None else prefilter)
             self.alignment_algorithm = ('mmseqs' if alignment_algorithm is None
                                         else alignment_algorithm)
             if alignment_algorithm == 'needle':
@@ -433,15 +433,21 @@ class HestiaGenerator:
 
         random = random_partition(self.data, test_size=test_size,
                                   random_state=random_state)
-        train_random = random_partition(
-            self.data.iloc[random[0]].reset_index(drop=True),
-            test_size=valid_size, random_state=random_state
-        )
-        self.partitions['random'] = {
-            'train': train_random[0],
-            'valid': train_random[1],
-            'test': random[1]
-        }
+        if valid_size > 0.:
+            train_random = random_partition(
+                self.data.iloc[random[0]].reset_index(drop=True),
+                test_size=valid_size, random_state=random_state
+            )
+            self.partitions['random'] = {
+                'train': train_random[0],
+                'valid': train_random[1],
+                'test': random[1]
+            }
+        else:
+            self.partitions['random'] = {
+                'train': random[0],
+                'test': random[1]
+            }
         sim_metadata = vars(sim_args)
         if sim_args.data_type == 'embedding':
             del sim_metadata['query_embds']
