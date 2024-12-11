@@ -118,7 +118,7 @@ def reduction_partition(
     df: pd.DataFrame,
     sim_df: pd.DataFrame,
     field_name: str,
-    similarity_metric: str = 'mmseqs+prefilter',
+    sim_function: str = 'mmseqs+prefilter',
     threads: int = cpu_count(),
     clustering_mode: str = "CDHIT",
     denominator: str = "shortest",
@@ -133,7 +133,7 @@ def reduction_partition(
     radius: int = 2,
     config: dict = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    df = similarity_reduction(df, similarity_metric, field_name,
+    df = similarity_reduction(df, sim_function, field_name,
                               threads, clustering_mode, denominator,
                               test_size, threshold, verbose, data_type,
                               representation, bits,
