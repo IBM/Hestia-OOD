@@ -1,6 +1,6 @@
 import numpy as np
 
-from hestia.dataset_generator import HestiaDatasetGenerator
+from hestia import HestiaGenerator
 
 
 def test_statstical_test():
@@ -42,8 +42,10 @@ def test_statstical_test():
                       0.9761423297987252, 0.9695975419670868, 0.9705329429555928,
                       0.9851714225104776, 0.9774667382817904]
     }
-    matrix = HestiaDatasetGenerator.compare_models(model_results,
-                                                   statistical_test='wilcoxon')
+    matrix = HestiaGenerator.compare_models(
+        model_results,
+        statistical_test='wilcoxon'
+    )
     objective = np.array([
         [1., 0.9999, 1.],
         [1.251*1e-9, 1., 0.93662],
