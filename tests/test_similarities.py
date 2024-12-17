@@ -22,9 +22,9 @@ def test_fingerprint_alignment():
         'metric': [1., 0.773585, 0.785714, 0.773585, 1.,
                    0.773585, 0.785714, 0.773585, 1.]
     })
-    assert sim_df['query'].tolist() == objective_df['query'].tolist()
-    assert sim_df['target'].tolist() == objective_df['target'].tolist()
-    np.testing.assert_allclose(sim_df['metric'].tolist(),
+    assert sim_df['query'].to_list() == objective_df['query'].tolist()
+    assert sim_df['target'].to_list() == objective_df['target'].tolist()
+    np.testing.assert_allclose(sim_df['metric'].to_list(),
                                objective_df['metric'].tolist(), rtol=0.001)
 
     sim_df2 = molecular_similarity(
@@ -38,8 +38,8 @@ def test_fingerprint_alignment():
         'target': [0, 1, 2],
         'metric': [1.0, 1.0, 1.0]
     })
-    assert sim_df2['query'].tolist() == objective_df2['query'].tolist()
-    assert sim_df2['target'].tolist() == objective_df2['target'].tolist()
+    assert sim_df2['query'].to_list() == objective_df2['query'].tolist()
+    assert sim_df2['target'].to_list() == objective_df2['target'].tolist()
     np.testing.assert_allclose(sim_df2['metric'].to_numpy(),
                                objective_df2['metric'].to_numpy(), rtol=0.001)
 
@@ -64,9 +64,9 @@ def test_embedding_cosine_similarity():
         'target': [0, 1, 0, 1],
         'metric': [1., 0.76962, 0.76962, 1.]
     })
-    assert sim_df['query'].tolist() == objective_df['query'].tolist()
-    assert sim_df['target'].tolist() == objective_df['target'].tolist()
-    np.testing.assert_allclose(sim_df.metric, objective_df.metric,
+    assert sim_df['query'].to_list() == objective_df['query'].tolist()
+    assert sim_df['target'].to_list() == objective_df['target'].tolist()
+    np.testing.assert_allclose(sim_df['metric'].to_numpy(), objective_df.metric,
                                rtol=0.001)
 
 
@@ -85,14 +85,15 @@ def test_embedding_euclidean_similarity():
                   0.34864062629605075, 0.4795065290549264])
     df_query = np.stack([a, b])
     sim_df = embedding_similarity(df_query, sim_function='euclidean')
+    print(sim_df.head())
     objective_df = pd.DataFrame({
         'query': [0, 0, 1, 1],
         'target': [0, 1, 0, 1],
         'metric': [1.,  0.440091, 0.440091, 1.]
     })
-    assert sim_df['query'].tolist() == objective_df['query'].tolist()
-    assert sim_df.target.tolist() == objective_df.target.tolist()
-    np.testing.assert_allclose(sim_df.metric, objective_df.metric,
+    assert sim_df['query'].to_list() == objective_df['query'].tolist()
+    assert sim_df['target'].to_list() == objective_df.target.tolist()
+    np.testing.assert_allclose(sim_df['metric'].to_numpy(), objective_df.metric,
                                rtol=0.001)
 
 
@@ -116,9 +117,9 @@ def test_mapchiral():
                    0.5634765625, 1.0, 0.0302734375,
                    0.0390625, 0.0302734375, 1.0]
     })
-    assert sim_df['query'].tolist() == objective_df['query'].tolist()
-    assert sim_df['target'].tolist() == objective_df['target'].tolist()
-    np.testing.assert_allclose(sim_df['metric'].tolist(),
+    assert sim_df['query'].to_list() == objective_df['query'].tolist()
+    assert sim_df['target'].to_list() == objective_df['target'].tolist()
+    np.testing.assert_allclose(sim_df['metric'].to_list(),
                                objective_df['metric'].tolist(), rtol=0.001)
 
 
@@ -141,9 +142,9 @@ def test_maccs():
                    0.921569, 0.961538, 0.921569, 1.]
     })
 
-    assert sim_df['query'].tolist() == objective_df['query'].tolist()
-    assert sim_df['target'].tolist() == objective_df['target'].tolist()
-    np.testing.assert_allclose(sim_df['metric'].tolist(),
+    assert sim_df['query'].to_list() == objective_df['query'].tolist()
+    assert sim_df['target'].to_list() == objective_df['target'].tolist()
+    np.testing.assert_allclose(sim_df['metric'].to_list(),
                                objective_df['metric'].tolist(), rtol=0.001)
 
 
