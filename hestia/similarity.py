@@ -18,7 +18,7 @@ from hestia.utils import BULK_SIM_METRICS
 SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 
 
-def sim_df2mtx(sim_df: pl.DataFrame,
+def sim_df2mtx(sim_df: Union[pl.DataFrame, pd.DataFrame],
                size_query: Optional[int] = None,
                size_target: Optional[int] = None,
                threshold: Optional[float] = 0.0,
@@ -47,6 +47,8 @@ def sim_df2mtx(sim_df: pl.DataFrame,
     :return: Symmetric sparse matrix of filtered similarity scores, either in boolean or numerical format.
     :rtype: spr.csr_matrix
     """
+    if isinstance(sim_df, pd.DataFrame):
+        sim_df = pl.from_pandas(sim_df)
     if size_query is None:
         size_query = sim_df['query'].n_unique()
     if size_target is None:
@@ -691,7 +693,7 @@ def sequence_similarity_peptides(
                     proto_df.append({
                         'query': name,
                         'target': name2,
-                        'metric': metric
+                        'fident': metric
                     })
         return pl.DataFrame(proto_df)
 
@@ -790,31 +792,39 @@ def sequence_similarity_peptides(
         print('Calculating pairwise alignments using MMSeqs2 algorithm',
                 'with `peptide` mode...')
 
+    df = None
     if len(normal_df_query) > 0:
         normal_simdf = _normal_alignment(
             df_query=normal_df_query, df_target=df_target, tmp_dir=tmp_dir,
             field_name=field_name, dbtype=dbtype, denominator=denominator,
             mmseqs_v=mmseqs_v, threads=threads
         )
-    else:
-        normal_simdf = pl.DataFrame()
+        if normal_simdf is not None:
+            df = normal_simdf.select(['query', 'target', 'fident'])
+
     if len(medium_df_query) > 0:
         medium_simdf = _medium_alignment(
             df_query=medium_df_query, df_target=df_target, tmp_dir=tmp_dir,
             field_name=field_name, dbtype=dbtype, denominator=denominator,
             mmseqs_v=mmseqs_v, threads=threads
         )
-    else:
-        medium_simdf = pl.DataFrame()
+        if medium_simdf is not None:
+            if df is None:
+                medium_simdf = medium_simdf.select(['query', 'target', 'fident'])
+            else:
+                df = pl.concat([df, medium_simdf.select(['query', 'target', 'fident'])])
+
     if len(small_df_query) > 0:
         small_simdf = _small_alignment(
             df_query=small_df_query, df_target=df_target,
             field_name=field_name, denominator=denominator
         )
-    else:
-        small_simdf = pl.DataFrame()
+        if small_simdf is not None:
+            if df is None:
+                df = small_simdf.select(['query', 'target', 'fident'])
+            else:
+                df = pl.concat([df, small_simdf.select(['query', 'target', 'fident'])])
 
-    df = pl.concat([normal_simdf, medium_simdf, small_simdf])
     df = df.rename({'fident': 'metric'})
     df = df.filter(pl.col('metric') > threshold).select(['query', 'target', 'metric'])
 
