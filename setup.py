@@ -13,6 +13,7 @@ requirements = [
     'scipy',
     'scikit-learn',
     'pandas',
+    'polars',
     'numpy',
     'tqdm'
 ]

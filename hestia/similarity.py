@@ -7,6 +7,7 @@ from typing import Callable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from tqdm import tqdm
 import scipy.sparse as spr
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +18,7 @@ from hestia.utils import BULK_SIM_METRICS
 SUPPORTED_FPS = ['ecfp', 'mapc', 'maccs']
 
 
-def sim_df2mtx(sim_df: pd.DataFrame,
+def sim_df2mtx(sim_df: Union[pl.DataFrame, pd.DataFrame],
                size_query: Optional[int] = None,
                size_target: Optional[int] = None,
                threshold: Optional[float] = 0.0,
@@ -28,7 +29,7 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     based on a similarity threshold and producing a boolean or numerical output.
 
     :param sim_df: DataFrame containing similarity data with `query`, `target`, and `metric` columns.
-    :type sim_df: pd.DataFrame
+    :type sim_df: pl.DataFrame
     :param size_query: Total number of unique query indices, defining the first dimension of the matrix. 
                        Defaults to the number of unique queries in `sim_df`.
     :type size_query: int, optional
@@ -46,28 +47,30 @@ def sim_df2mtx(sim_df: pd.DataFrame,
     :return: Symmetric sparse matrix of filtered similarity scores, either in boolean or numerical format.
     :rtype: spr.csr_matrix
     """
+    if isinstance(sim_df, pd.DataFrame):
+        sim_df = pl.from_pandas(sim_df)
     if size_query is None:
-        size_query = len(sim_df['query'].unique())
+        size_query = sim_df['query'].n_unique()
     if size_target is None:
         size_target = size_query
 
-    dtype = np.bool_ if boolean_out else sim_df.metric.dtype
     if filter_smaller:
-        sim_df = sim_df[sim_df.metric > threshold]
+        sim_df = sim_df.filter(pl.col('metric') > threshold)
     else:
-        sim_df = sim_df[sim_df.metric < threshold]
-
-    if dtype == np.float16:
-        dtype = np.float32
+        sim_df = sim_df.filter(pl.col('metric') < threshold)
 
     queries = sim_df['query'].to_numpy()
     targets = sim_df['target'].to_numpy()
     metrics = sim_df['metric'].to_numpy()
+
+    dtype = np.bool_ if boolean_out else metrics.dtype
+    if dtype == np.float16:
+        dtype = np.float32
+
+    # Convert metrics to boolean if requested
     if boolean_out:
-        if filter_smaller:
-            metrics[metrics > threshold] = True
-        else:
-            metrics[metrics < threshold] = True
+        metrics = np.ones_like(metrics, dtype=np.bool_)
+
     mtx = spr.coo_matrix((metrics, (queries, targets)),
                          shape=(size_query, size_target),
                          dtype=dtype)
@@ -84,7 +87,7 @@ def embedding_similarity(
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Calculates pairwise similarity between embeddings in `query_embds` and `target_embds` using specified
     similarity functions. Supports parallel processing to handle large datasets efficiently.
@@ -112,7 +115,7 @@ def embedding_similarity(
 
     :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents a pairwise 
              similarity score above the specified `threshold`.
-    :rtype: pd.DataFrame
+    :rtype: pl.DataFrame
     """
     if target_embds is None:
         target_embds = query_embds
@@ -156,15 +159,23 @@ def embedding_similarity(
                     targets.append(int((idx * chunk_size) + idx_target))
                     metrics.append(metric)
 
-    df = pd.DataFrame({'query': queries, 'target': targets,
-                       'metric': metrics})
+    df = pl.DataFrame({
+        "query": queries,
+        "target": targets,
+        "metric": metrics
+    })
+
     if sim_function in ['manhattan', 'euclidean', 'canberra']:
-        df.metric = df.metric.map(lambda x: 1 / (1 + x))
-    df = df[df['metric'] > threshold]
+        df = df.with_columns((1 / (1 + pl.col("metric"))).alias(
+            'metric'
+        ))
+
+    df = df.filter(pl.col("metric") > threshold)
+
     if save_alignment:
         if filename is None:
-            filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+            filename = f"{time.time()}"
+        df.write_csv(f"{filename}.csv.gz", compression="gzip")
     return df
 
 
@@ -182,7 +193,7 @@ def molecular_similarity(
     save_alignment: bool = False,
     filename: str = None,
     **kwargs
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Calculates pairwise molecular similarity between query and target molecules using specified fingerprint
     and similarity functions. Uses RDKit for molecular fingerprinting and similarity calculations.
@@ -223,7 +234,7 @@ def molecular_similarity(
 
     :return: DataFrame with columns `query`, `target`, and `metric`, where each row represents a pairwise 
              similarity score above the specified `threshold`.
-    :rtype: pd.DataFrame
+    :rtype: pl.DataFrame
     """
     try:
         from rdkit import Chem
@@ -430,16 +441,21 @@ def molecular_similarity(
     queries = queries[mask]
     targets = targets[mask]
     metrics = metrics[mask]
-    df = pd.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
+    df = pl.DataFrame({'query': queries, 'target': targets, 'metric': metrics})
 
     if sim_function in ['manhattan', 'euclidean', 'canberra']:
-        df.metric = df.metric.map(lambda x: 1 / (1 + x))
+        df = df.with_columns(
+            pl.col("metric").map_elements(lambda x: 1 / (1 + x),
+                                          return_dtype=pl.Float32)
+        )
 
-    df = df[df['metric'] > threshold]
+    df = df.filter(pl.col("metric") > threshold)
+
     if save_alignment:
         if filename is None:
-            filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+            filename = f"{time.time()}"
+        df.write_csv(f"{filename}.csv.gz", compression="gzip")
+
     return df
 
 
@@ -569,7 +585,7 @@ def protein_structure_similarity(
                     'query,target,fident,alnlen,qlen,tlen,prob,alntmscore',
                     '-v', str(mmseqs_v)])
 
-    df = pd.read_csv(alignment_csv, sep='\t')
+    df = pl.read_csv(alignment_csv, separator='\t')
     qry2idx = {os.path.basename(qry).split('.pdb')[0]: idx for idx, qry in
                enumerate(df_query[field_name].unique())}
     tgt2idx = {os.path.basename(tgt).split('.pdb')[0]: idx for idx, tgt in
@@ -578,21 +594,30 @@ def protein_structure_similarity(
     if save_alignment:
         if filename is None:
             filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+        df.write_csv(f'{filename}.csv.gz', compression='gzip')
 
     if representation.lower() == 'tm':
-        df['metric'] = df['alntmscore']
+        df = df.rename({'alntmscore': 'metric'})
     else:
-        df['metric'] = df['prob']
+        df = df.rename({'prob': 'metric'})
+    df = df.with_columns(pl.col("metric").map_elements(
+        lambda x: qry2idx[x.split('.pdb')[0].split('_')[0]]
+    ))
+    df = df.with_columns(pl.col('query').map_elements(
+        lambda x: qry2idx[x.split('.pdb')[0].split('_')[0]],
+        return_dtype=pl.Int64
+    ))
+    df = df.with_columns(pl.col('target').map_elements(
+        lambda x: tgt2idx[x.split('.pdb')[0].split('_')[0]],
+        return_dtype=pl.Int64
+    ))
+    df = df.filter(pl.col('metric') > threshold).select(['query', 'target', 'metric'])
 
-    df['query'] = df['query'].map(lambda x: qry2idx[
-        x.split('.pdb')[0].split('_')[0]])
-    df['query'] = df['query'].astype(int)
-    df['target'] = df['target'].map(lambda x: tgt2idx[
-        x.split('.pdb')[0].split('_')[0]])
-    df['target'] = df['target'].astype(int)
-    df = df[df['metric'] > threshold]
-    shutil.rmtree(tmp_dir)
+    if save_alignment:
+        if filename is None:
+            filename = time.time()
+        df.write_csv(f'{filename}.csv.gz', compression='gzip')
+
     return df
 
 
@@ -654,7 +679,7 @@ def sequence_similarity_peptides(
         )
     from hestia.utils.file_format import _write_fasta
 
-    def _small_alignment(df_query, df_target, field_name, denominator) -> pd.DataFrame:
+    def _small_alignment(df_query, df_target, field_name, denominator) -> pl.DataFrame:
         proto_df = []
         for name, seq in zip(df_query.index.tolist(), df_query[field_name]):
             for name2, seq2 in zip(df_target.index.tolist(), df_target[field_name]):
@@ -668,13 +693,13 @@ def sequence_similarity_peptides(
                     proto_df.append({
                         'query': name,
                         'target': name2,
-                        'metric': metric
+                        'fident': metric
                     })
-        return pd.DataFrame(proto_df)
+        return pl.DataFrame(proto_df)
 
     def _normal_alignment(df_query, df_target, tmp_dir,
                           field_name, dbtype, denominator,
-                          mmseqs_v, threads) -> pd.DataFrame:
+                          mmseqs_v, threads) -> pl.DataFrame:
         db_query_file = os.path.join(tmp_dir, 'db_query.fasta')
         db_target_file = os.path.join(tmp_dir, 'db_target.fasta')
         _write_fasta(df_query[field_name].tolist(), df_query.index.tolist(),
@@ -703,12 +728,12 @@ def sequence_similarity_peptides(
                         '--format-mode', '4', '--threads', str(threads),
                         file, '-v', '1'])
 
-        df = pd.read_csv(file, sep='\t')
+        df = pl.read_csv(file, separator='\t')
         return df
 
     def _medium_alignment(df_query, df_target, tmp_dir,
                           field_name, dbtype, denominator,
-                          mmseqs_v, threads):
+                          mmseqs_v, threads) -> pl.DataFrame:
         db_query_file = os.path.join(tmp_dir, 'db_query.fasta')
         db_target_file = os.path.join(tmp_dir, 'db_target.fasta')
         _write_fasta(df_query[field_name].tolist(), df_query.index.tolist(),
@@ -739,7 +764,7 @@ def sequence_similarity_peptides(
                         '--format-mode', '4', '--threads', str(threads),
                         file, '-v', '1'])
 
-        df = pd.read_csv(file, sep='\t')
+        df = pl.read_csv(file, separator='\t')
         return df
 
     DENOMINATOR_DICT = {'n_aligned': '0', 'shortest': '1', 'longest': '2'}
@@ -767,38 +792,46 @@ def sequence_similarity_peptides(
         print('Calculating pairwise alignments using MMSeqs2 algorithm',
                 'with `peptide` mode...')
 
+    df = None
     if len(normal_df_query) > 0:
         normal_simdf = _normal_alignment(
             df_query=normal_df_query, df_target=df_target, tmp_dir=tmp_dir,
             field_name=field_name, dbtype=dbtype, denominator=denominator,
             mmseqs_v=mmseqs_v, threads=threads
         )
-    else:
-        normal_simdf = pd.DataFrame()
+        if normal_simdf is not None:
+            df = normal_simdf.select(['query', 'target', 'fident'])
+
     if len(medium_df_query) > 0:
         medium_simdf = _medium_alignment(
             df_query=medium_df_query, df_target=df_target, tmp_dir=tmp_dir,
             field_name=field_name, dbtype=dbtype, denominator=denominator,
             mmseqs_v=mmseqs_v, threads=threads
         )
-    else:
-        medium_simdf = pd.DataFrame()
+        if medium_simdf is not None:
+            if df is None:
+                medium_simdf = medium_simdf.select(['query', 'target', 'fident'])
+            else:
+                df = pl.concat([df, medium_simdf.select(['query', 'target', 'fident'])])
+
     if len(small_df_query) > 0:
         small_simdf = _small_alignment(
-            df_query=small_df_query, df_target=df_target, field_name=field_name,
-            denominator=denominator
+            df_query=small_df_query, df_target=df_target,
+            field_name=field_name, denominator=denominator
         )
-    else:
-        small_simdf = pd.DataFrame()
+        if small_simdf is not None:
+            if df is None:
+                df = small_simdf.select(['query', 'target', 'fident'])
+            else:
+                df = pl.concat([df, small_simdf.select(['query', 'target', 'fident'])])
 
-    df = pd.concat([normal_simdf, medium_simdf, small_simdf])
-    df['metric'] = df['fident']
-    df = df[df['metric'] > threshold]
-    df = df[['query', 'target', 'metric']]
+    df = df.rename({'fident': 'metric'})
+    df = df.filter(pl.col('metric') > threshold).select(['query', 'target', 'metric'])
+
     if save_alignment:
         if filename is None:
             filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+        df.write_csv(f'{filename}.csv.gz', compression='gzip')
 
     shutil.rmtree(tmp_dir)
     return df
@@ -936,14 +969,16 @@ def sequence_similarity_mmseqs(
                     '--format-mode', '4', '--threads', f'{threads}',
                     file, '-v', '1'])
 
-    df = pd.read_csv(file, sep='\t')
-    df['metric'] = df['fident']
-    df = df[df['metric'] > threshold]
-    df = df[['query', 'target', 'metric']]
+    df = pl.read_csv(file, separator='\t')
+    df = df.rename({'fident': 'metric'})  # Renaming 'fident' to 'metric'
+
+    # Filtering results
+    df = df.filter(pl.col('metric') > threshold).select(['query', 'target', 'metric'])
+
     if save_alignment:
         if filename is None:
             filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+        df.write_csv(f'{filename}.csv.gz', compression='gzip')
 
     shutil.rmtree(tmp_dir)
     return df
@@ -1091,13 +1126,13 @@ def sequence_similarity_needle(
                 }
                 proto_df.append(entry)
 
-    df = pd.DataFrame(proto_df)
+    df = pl.DataFrame(proto_df)
     if save_alignment:
         if filename is None:
             filename = time.time()
-        df.to_csv(f'{filename}.csv.gz', index=False, compression='gzip')
+        df.write_csv(f'{filename}.csv.gz', index=False, compression='gzip')
     shutil.rmtree(tmp_dir)
-    df = df[df['metric'] > threshold]
+    df = df.filter(pl.col('metric') > threshold)
     return df
 
 
