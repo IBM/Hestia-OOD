@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Hestia</h1>
+  <h1>Hestia-GOOD</h1>
 
   <p>Computational tool for generating generalisation-evaluating evaluation sets.</p>
   
