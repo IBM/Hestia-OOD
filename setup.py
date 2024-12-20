@@ -40,7 +40,7 @@ setup(
     long_description_content_type="text/markdown",
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/IBM/Hestia-OOD',
+    url='https://github.com/IBM/Hestia-GOOD',
     version='0.0.36',
     zip_safe=False,
 )
